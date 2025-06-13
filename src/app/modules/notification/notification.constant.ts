@@ -1,0 +1,6 @@
+export enum NOTIFICATION_STATUS {
+  READ = 'READ',
+  UNREAD = 'UNREAD',
+}
+
+export const NEW_NOTIFICATION = 'NEW_NOTIFICATION';
