@@ -1,7 +1,8 @@
 export interface IAffiliatedDoctor {
   name: string;
   specialization: string;
-  image: string; // Path to the doctor's image
+  image: string; 
+  active?: boolean; 
   createdAt?: Date;
   updatedAt?: Date;
 }

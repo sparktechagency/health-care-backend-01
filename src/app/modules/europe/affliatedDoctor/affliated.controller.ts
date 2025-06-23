@@ -170,4 +170,64 @@ export const AffiliatedDoctorController = {
         });
       }
     },
+  // Update the active status of an affiliated doctor
+  updateDoctorStatus: async (req: Request, res: Response): Promise<void> => { 
+    try {
+    const { id } = req.params;
+    const { active } = req.body;
+    const updatedDoctor = await AffiliatedDoctorService.updateDoctorStatus(id, active);
+  
+    if (!updatedDoctor) {
+      res.status(404).json({
+        success: false,
+        message: 'Affiliated Doctor not found',
+      });
+      return;
+    }
+  
+    res.status(200).json({
+      success: true,
+      message: 'Affiliated Doctor status updated successfully',
+      data: updatedDoctor,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating affiliated doctor status',
+      errorMessages: error,
+    });
+  }
+  },
+  // Get all active affiliated doctors
+  getActiveDoctors: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const activeDoctors = await AffiliatedDoctorService.getActiveDoctors();
+      res.status(200).json({
+        success: true,
+        data: activeDoctors,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching active affiliated doctors',
+        errorMessages: error,
+      });
+    }
+  },
+  // Get all inactive affiliated doctors  
+  getInactiveDoctors: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const inactiveDoctors = await AffiliatedDoctorService.getInactiveDoctors();
+      res.status(200).json({
+        success: true,
+        data: inactiveDoctors,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching inactive affiliated doctors',
+        errorMessages: error,
+      });
+    }
+  }
 };

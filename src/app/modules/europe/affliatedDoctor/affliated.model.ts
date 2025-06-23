@@ -6,6 +6,7 @@ const affiliatedDoctorSchema = new Schema<IAffiliatedDoctor>(
     name: { type: String, required: true },
     specialization: { type: String, required: true },
     image: { type: String, required: false },
+    active: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

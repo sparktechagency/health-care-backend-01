@@ -31,4 +31,19 @@ export const AffiliatedDoctorService = {
     const deletedDoctor = await AffiliatedDoctor.findByIdAndDelete(id);
     return deletedDoctor;
   },
+  //update the active status of an affiliated doctor
+  updateDoctorStatus: async (id: string, active: boolean) => {
+    const updatedDoctor = await AffiliatedDoctor.findByIdAndUpdate(id, { active }, { new: true });
+    return updatedDoctor;
+  },
+  // Get all active affiliated doctors
+  getActiveDoctors: async () => {
+    const activeDoctors = await AffiliatedDoctor.find({ active: true });
+    return activeDoctors;
+  },
+  // Get all inactive affiliated doctors
+  getInactiveDoctors: async () => {
+    const inactiveDoctors = await AffiliatedDoctor.find({ active: false });
+    return inactiveDoctors;
+  }
 };

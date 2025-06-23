@@ -20,6 +20,21 @@ router.get(
     AffiliatedDoctorController.getAllDoctors,
     auth(USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN)
 );
+router.patch(
+  '/status/:id',
+    AffiliatedDoctorController.updateDoctorStatus,
+    auth(USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN)
+);
+router.get(
+  '/active',
+    AffiliatedDoctorController.getActiveDoctors,
+    auth(USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN)
+);
+router.get(
+  '/inactive',
+    AffiliatedDoctorController.getInactiveDoctors,
+    auth(USER_ROLES.ADMIN, USER_ROLES.SUPERADMIN)
+);
 router.get(
   '/:id',
     AffiliatedDoctorController.getDoctorById,

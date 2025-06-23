@@ -22,6 +22,7 @@ const createDiscountZodSchema = z.object({
       required_error: 'amount is required',
       invalid_type_error: 'amount should be type number',
     }),
+    
   }),
 });
 
