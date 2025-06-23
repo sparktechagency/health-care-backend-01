@@ -20,6 +20,8 @@ import { QuestionRoutes } from '../app/modules/question/question.route';
 import { OrderRoutes } from '../app/modules/order/order.route';
 import { EuropeConsultationRoutes } from '../app/modules/europe/consultation/consultation.route';
 import { AffliatedRoutes } from '../app/modules/europe/affliatedDoctor/affliated.route';
+import { MedicalQuestionRoutes } from '../app/modules/question-medical/question.route';
+
 const router = express.Router();
 
 const apiRoutes = [
@@ -62,6 +64,10 @@ const apiRoutes = [
   {
     path: '/faq',
     route: FaqRoutes,
+  },
+    {
+    path: '/medical-question',
+    route: MedicalQuestionRoutes,
   },
   {
     path: '/about',

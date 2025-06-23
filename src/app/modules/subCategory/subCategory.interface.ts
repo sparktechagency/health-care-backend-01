@@ -6,6 +6,7 @@ export type ISubCategory = {
   category: Types.ObjectId;
   image: string;
   totalQuestions?: number;
+  introduction?: string;
   details: string;
 };
 
