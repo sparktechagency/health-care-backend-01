@@ -30,7 +30,58 @@ const consultationSchema = new Schema<IConsultation, ConsultationModel>(
       type: Date,
       required: false,
     },
-    medicins: {
+    // medicins: {
+    //   type: [
+    //     {
+    //       _id: {
+    //         type: Schema.Types.ObjectId,
+    //         ref: 'Medicine',
+    //         required: false,
+    //       },
+
+    //       count: {
+    //         type: Number,
+    //         required: false,
+    //       },
+    //       total: {
+    //         type: String,
+    //         required: false,
+    //       },
+    //     },
+    //   ],
+    //   required: false,
+    // },
+     selectedMedicines: {
+      type: [
+        {
+          medicineId: {
+            type: Schema.Types.ObjectId,
+            ref: 'Medicine',
+            required: true,
+          },
+          variationId: {
+            type: Schema.Types.ObjectId,
+            required: true, // ID of the specific variation chosen
+          },
+          unitId: {
+            type: Schema.Types.ObjectId,
+            required: true, // ID of the specific unit within variation
+          },
+          count: {
+            type: Number,
+            required: true,
+            min: 1,
+          },
+          total: {
+            type: Number,
+            required: true,
+          },
+        },
+      ],
+      required: false,
+      default: [],
+    },
+     medicins: {
       type: [
         {
           _id: {
@@ -38,7 +89,6 @@ const consultationSchema = new Schema<IConsultation, ConsultationModel>(
             ref: 'Medicine',
             required: false,
           },
-
           count: {
             type: Number,
             required: false,
@@ -148,6 +198,7 @@ const consultationSchema = new Schema<IConsultation, ConsultationModel>(
   },
   { timestamps: true }
 );
+
 
 export const Consultation = model<IConsultation, ConsultationModel>(
   'Consultation',

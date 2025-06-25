@@ -4,6 +4,10 @@ import sendResponse from '../../../shared/sendResponse';
 import { StatusCodes } from 'http-status-codes';
 import { ConsultationService } from './consultation.service';
 import ApiError from '../../../errors/ApiError';
+import { Types } from 'mongoose';
+import { IConsultation } from './consultation.interface';
+import { Consultation } from './consultation.model';
+import { stripeHelper } from '../../../helpers/stripeHelper';
 
 
 // const createConsultation = catchAsync(async (req: Request, res: Response) => {
@@ -17,14 +21,87 @@ import ApiError from '../../../errors/ApiError';
 //   });
    
 // });
-const createConsultation = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.id;
 
-  if (!userId) {
-    throw new ApiError(StatusCodes.UNAUTHORIZED, 'User not authenticated');
+// const createConsultation = catchAsync(async (req: Request, res: Response) => {
+//   // Validate and process selected medicines if provided
+//   if (req.body.selectedMedicines && Array.isArray(req.body.selectedMedicines)) {
+//     try {
+//       // Validate each selected medicine
+//       for (const medicine of req.body.selectedMedicines) {
+//         if (!medicine.medicineId || !medicine.variationId || !medicine.unitId || !medicine.count) {
+//           return res.status(400).json({
+//             success: false,
+//             message: 'Each selected medicine must have medicineId, variationId, unitId, and count',
+//           });
+//         }
+        
+//         // Ensure count is a positive number
+//         if (medicine.count <= 0) {
+//           return res.status(400).json({
+//             success: false,
+//             message: 'Medicine count must be greater than 0',
+//           });
+//         }
+//       }
+//     } catch (error) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid selectedMedicines data',
+//         error: error instanceof Error ? error.message : error,
+//       });
+//     }
+//   }
+
+//   const result = await ConsultationService.createConsultation(req.body, req.user?.id);
+//   sendResponse(res, {
+//     statusCode: StatusCodes.CREATED,
+//     success: true,
+//     message: 'Consultation created successfully',
+//     data: result,
+//   });
+// });
+const createConsultation = catchAsync(async (req: Request, res: Response) => {
+  // Validate and process selected medicines if provided
+  if (req.body.selectedMedicines && Array.isArray(req.body.selectedMedicines)) {
+    try {
+      // Validate each selected medicine
+      for (const medicine of req.body.selectedMedicines) {
+        if (!medicine.medicineId || !medicine.variationId || !medicine.unitId || !medicine.count) {
+          return res.status(400).json({
+            success: false,
+            message: 'Each selected medicine must have medicineId, variationId, unitId, and count',
+          });
+        }
+       
+        // Ensure count is a positive number
+        if (medicine.count <= 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'Medicine count must be greater than 0',
+          });
+        }
+      }
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid selectedMedicines data',
+        error: error instanceof Error ? error.message : error,
+      });
+    }
   }
 
-  const result = await ConsultationService.createConsultation(req.body, userId);
+  // Validate discount code if provided
+  if (req.body.discountCode) {
+    if (typeof req.body.discountCode !== 'string' || req.body.discountCode.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid discount code format',
+      });
+    }
+  }
+
+  const result = await ConsultationService.createConsultation(req.body, req.user?.id);
+
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,
     success: true,
@@ -32,7 +109,6 @@ const createConsultation = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
-
 
 const createConsultationSuccess = catchAsync(
   async (req: Request, res: Response) => {
@@ -219,3 +295,7 @@ export const ConsultationController = {
   buyMedicine,
   buyMedicineSuccess,
 };
+function validateMedicineVariations(suggestedMedicine: any) {
+  throw new Error('Function not implemented.');
+}
+

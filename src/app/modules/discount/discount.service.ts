@@ -72,10 +72,63 @@ const deleteDiscount = async (id: string): Promise<IDiscount | null> => {
   return result;
 };
 
+const verifyCoupon = async (discountCode: string): Promise<{
+  isValid: boolean;
+  message: string;
+  discountPercent?: number;
+  couponName?: string;
+}> => {
+  try {
+    // Find the coupon by discountCode (case-insensitive)
+    const coupon = await Discount.findOne({ 
+      discountCode: { $regex: new RegExp(`^${discountCode}$`, 'i') }
+    });
+
+    if (!coupon) {
+      return {
+        isValid: false,
+        message: 'Invalid coupon code. Please check and try again.',
+      };
+    }
+
+    // Check date validity
+    const currentDate = new Date();
+    if (currentDate < coupon.startDate) {
+      return {
+        isValid: false,
+        message: 'This coupon is not yet active.',
+      };
+    }
+
+    if (currentDate > coupon.endDate) {
+      return {
+        isValid: false,
+        message: 'This coupon has expired.',
+      };
+    }
+
+    // Return success with discount percentage
+    return {
+      isValid: true,
+      message: `Congratulations! You have ${coupon.parcentage}% discount!`,
+      discountPercent: coupon.parcentage,
+      couponName: coupon.name,
+    };
+
+  } catch (error) {
+    throw new ApiError(
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      `Error verifying coupon: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+};
+
+
 export const DiscountService = {
   createDiscount,
   getAllDiscounts,
   getDiscountById,
   updateDiscount,
   deleteDiscount,
+  verifyCoupon
 };

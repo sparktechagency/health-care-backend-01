@@ -18,6 +18,11 @@ router.post(
   validateRequest(DiscountValidation.createDiscountZodSchema),
   DiscountController.createDiscount
 );
+router.post(
+  '/verify',
+  auth(...rolesOfAccess),
+  DiscountController.verifyCouponCode
+);
 router.get('/', DiscountController.getAllDiscounts);
 router.get('/:id', DiscountController.getDiscountById);
 

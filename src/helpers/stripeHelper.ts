@@ -6,8 +6,35 @@ import ApiError from '../errors/ApiError';
 import { StatusCodes } from 'http-status-codes';
 
 
-const createCheckoutSession = async (userId: string, id: string) => {
+// const createCheckoutSession = async (userId: string, id: string) => {
 
+//   const session = await stripe.checkout.sessions.create({
+//     payment_method_types: ['card', 'ideal'],
+//     line_items: [
+//       {
+//         price_data: {
+//           currency: 'eur',
+//           product_data: {
+//             name: 'Consultation service.',
+//             description: 'Consultation service from dokter for you',
+//           },
+//           unit_amount: 2500,
+//         },
+//         quantity: 1,
+//       },
+//     ],
+//     mode: 'payment',
+//     success_url: `http://10.0.70.30:5002/api/v1/consultation/create/success?session_id={CHECKOUT_SESSION_ID}&id=${id}`,
+//     cancel_url: `https://www.dokterforyou.com/profile?isSuccess=false`,
+//     metadata: {
+//       userId,
+//     },
+//   });
+
+
+//   return session;
+// };
+const createCheckoutSession = async (userId: string, id: string, totalAmount: number) => {
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card', 'ideal'],
     line_items: [
@@ -18,7 +45,7 @@ const createCheckoutSession = async (userId: string, id: string) => {
             name: 'Consultation service.',
             description: 'Consultation service from dokter for you',
           },
-          unit_amount: 2500,
+          unit_amount: Math.round(totalAmount * 100), // Convert to cents
         },
         quantity: 1,
       },
@@ -31,10 +58,8 @@ const createCheckoutSession = async (userId: string, id: string) => {
     },
   });
 
-
   return session;
 };
-
 
 
 

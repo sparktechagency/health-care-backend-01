@@ -4,12 +4,43 @@ import sendResponse from '../../../shared/sendResponse';
 import { StatusCodes } from 'http-status-codes';
 import { MedicineService } from './medicine.service';
 
+// const createMedicine = catchAsync(async (req: Request, res: Response) => {
+//   if (req.files && 'image' in req.files && req.files.image[0]) {
+//     req.body.image = '/images/' + req.files.image[0].filename;
+//   }
+//   req.body.addedBy = req.user.id;
+//   const result = await MedicineService.createMedicine(req.body);
+//   sendResponse(res, {
+//     statusCode: StatusCodes.CREATED,
+//     success: true,
+//     message: 'Medicine created successfully',
+//     data: result,
+//   });
+// });
+
+
 const createMedicine = catchAsync(async (req: Request, res: Response) => {
   if (req.files && 'image' in req.files && req.files.image[0]) {
     req.body.image = '/images/' + req.files.image[0].filename;
   }
+
   req.body.addedBy = req.user.id;
+
+  // ✅ Parse `variations` string into array
+  if (typeof req.body.variations === 'string') {
+    try {
+      req.body.variations = JSON.parse(req.body.variations);
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid JSON in variations field',
+        error: err instanceof Error ? err.message : err,
+      });
+    }
+  }
+
   const result = await MedicineService.createMedicine(req.body);
+
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,
     success: true,
@@ -17,6 +48,7 @@ const createMedicine = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
+
 
 const getAllMedicines = catchAsync(async (req: Request, res: Response) => {
   const query: Record<string, any> = req.query;

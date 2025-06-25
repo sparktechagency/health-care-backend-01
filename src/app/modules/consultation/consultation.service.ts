@@ -20,15 +20,253 @@ import { Order } from '../order/order.model';
 import { USER_ROLES } from '../../../enums/user';
 import { emailHelper } from '../../../helpers/emailHelper';
 import { emailTemplate } from '../../../shared/emailTemplate';
+import { Medicine } from '../medicine/medicine.model';
+import { Discount } from '../discount/discount.model';
+
+// const createConsultation = async (
+//   payload: IConsultation,
+//   userId: string
+// ): Promise<any> => {
+
+//   payload.userId = new Types.ObjectId(userId);
+
+//   const result = await Consultation.create(payload);
+//   if (!result) {
+//     throw new ApiError(
+//       StatusCodes.BAD_REQUEST,
+//       'Failed to create consultation!'
+//     );
+//   }
+
+//   const createCheckOutSession = await stripeHelper.createCheckoutSession(
+//   userId,
+//   result._id.toString()
+// );
+//   return createCheckOutSession.url;
+// };
+
+// const createConsultation = async (
+//   payload: IConsultation,
+//   userId: string
+// ): Promise<any> => {
+//   payload.userId = new Types.ObjectId(userId);
+
+//   // Calculate totals for selected medicines
+//   if (payload.selectedMedicines && payload.selectedMedicines.length > 0) {
+//     let totalAmount = 0;
+
+//     for (const selectedMedicine of payload.selectedMedicines) {
+//       try {
+//         // Fetch the medicine to get pricing information
+//         const medicine = await Medicine.findById(selectedMedicine.medicineId);
+//         if (!medicine) {
+//           throw new ApiError(
+//             StatusCodes.BAD_REQUEST,
+//             `Medicine with ID ${selectedMedicine.medicineId} not found`
+//           );
+//         }
+
+//         // Find the specific variation
+//         const variation = medicine.variations.find(
+//           (v: any) => v._id.toString() === selectedMedicine.variationId.toString()
+//         );
+//         if (!variation) {
+//           throw new ApiError(
+//             StatusCodes.BAD_REQUEST,
+//             `Variation with ID ${selectedMedicine.variationId} not found`
+//           );
+//         }
+
+//         // Find the specific unit within the variation
+//         const unit = variation.units.find(
+//           (u: any) => u._id.toString() === selectedMedicine.unitId.toString()
+//         );
+//         if (!unit) {
+//           throw new ApiError(
+//             StatusCodes.BAD_REQUEST,
+//             `Unit with ID ${selectedMedicine.unitId} not found`
+//           );
+//         }
+
+//         // Calculate total for this medicine selection
+//         const medicineTotal = unit.sellingPrice * selectedMedicine.count;
+//         selectedMedicine.total = medicineTotal;
+//         totalAmount += medicineTotal;
+
+//       } catch (error) {
+//         throw new ApiError(
+//           StatusCodes.BAD_REQUEST,
+//           `Error processing medicine selection: ${error instanceof Error ? error.message : error}`
+//         );
+//       }
+//     }
+
+//     // Set the total amount for the consultation
+//     payload.totalAmount = totalAmount;
+//   }
+
+//   const result = await Consultation.create(payload);
+//   if (!result) {
+//     throw new ApiError(
+//       StatusCodes.BAD_REQUEST,
+//       'Failed to create consultation!'
+//     );
+//   }
+
+//   const createCheckOutSession = await stripeHelper.createCheckoutSession(
+//     userId,
+//     result._id.toString()
+//   );
+  
+//   return {
+//     consultationId: result._id,
+//     checkoutUrl: createCheckOutSession.url,
+//     totalAmount: payload.totalAmount || 0,
+//   };
+// };
 
 const createConsultation = async (
-  payload: IConsultation,
+  payload: IConsultation & { discountCode?: string },
   userId: string
 ): Promise<any> => {
-
   payload.userId = new Types.ObjectId(userId);
+  
+  let originalAmount = 0;
+  let discountAmount = 0;
+  let finalAmount = 0;
+  let appliedDiscount = null;
+
+  // Fetch user to get their country
+  const user = await User.findById(userId);
+  if (!user || !user.country) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'User or user country not found'
+    );
+  }
+  const userCountry = user.country;
+
+  // Calculate totals for selected medicines
+  if (payload.selectedMedicines && payload.selectedMedicines.length > 0) {
+    for (const selectedMedicine of payload.selectedMedicines) {
+      try {
+        // Fetch the medicine to get pricing information
+        const medicine = await Medicine.findById(selectedMedicine.medicineId);
+        if (!medicine) {
+          throw new ApiError(
+            StatusCodes.BAD_REQUEST,
+            `Medicine with ID ${selectedMedicine.medicineId} not found`
+          );
+        }
+
+        // Find the specific variation
+        const variation = medicine.variations.find(
+          (v: any) => v._id.toString() === selectedMedicine.variationId.toString()
+        );
+        if (!variation) {
+          throw new ApiError(
+            StatusCodes.BAD_REQUEST,
+            `Variation with ID ${selectedMedicine.variationId} not found`
+          );
+        }
+
+        // Find the specific unit within the variation
+        const unit = variation.units.find(
+          (u: any) => u._id.toString() === selectedMedicine.unitId.toString()
+        );
+        if (!unit) {
+          throw new ApiError(
+            StatusCodes.BAD_REQUEST,
+            `Unit with ID ${selectedMedicine.unitId} not found`
+          );
+        }
+
+        // Calculate total for this medicine selection
+        const medicineTotal = unit.sellingPrice * selectedMedicine.count;
+        selectedMedicine.total = medicineTotal;
+        originalAmount += medicineTotal;
+
+      } catch (error) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          `Error processing medicine selection: ${error instanceof Error ? error.message : error}`
+        );
+      }
+    }
+  }
+
+  // Apply discount if discount code is provided
+  if (payload.discountCode) {
+    try {
+      const discount = await Discount.findOne({
+        discountCode: payload.discountCode.trim(),
+        startDate: { $lte: new Date() },
+        endDate: { $gte: new Date() }
+      });
+
+      if (!discount) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'Invalid or expired discount code'
+        );
+      }
+
+      // Check if the discount is applicable to the user's country
+      if (discount.country && discount.country.length > 0 && !discount.country.includes(userCountry)) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          `This coupon code is not valid in your country (${userCountry})`
+        );
+      }
+
+      // Check if discount percentage is valid
+      if (!discount.parcentage || discount.parcentage <= 0 || discount.parcentage > 100) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          'Invalid discount percentage'
+        );
+      }
+
+      // Calculate discount amount
+      discountAmount = (originalAmount * discount.parcentage) / 100;
+      finalAmount = originalAmount - discountAmount;
+
+      appliedDiscount = {
+        discountId: discount._id.toString(),
+        discountCode: discount.discountCode,
+        discountPercentage: discount.parcentage,
+        discountAmount: discountAmount
+      };
+
+      // Ensure final amount is not negative
+      if (finalAmount < 0) {
+        finalAmount = 0;
+      }
+
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `Error applying discount: ${error instanceof Error ? error.message : error}`
+      );
+    }
+  } else {
+    finalAmount = originalAmount;
+  }
+
+  // Set amounts in payload
+  payload.originalAmount = originalAmount;
+  payload.discountAmount = discountAmount;
+  payload.totalAmount = finalAmount;
+  
+  if (appliedDiscount) {
+    payload.appliedDiscount = appliedDiscount;
+  }
 
   const result = await Consultation.create(payload);
+
   if (!result) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
@@ -37,12 +275,51 @@ const createConsultation = async (
   }
 
   const createCheckOutSession = await stripeHelper.createCheckoutSession(
-  userId,
-  result._id.toString()
-);
-  return createCheckOutSession.url;
-};
+    userId,
+    result._id.toString(),
+    finalAmount
+  );
 
+  return {
+    consultationId: result._id,
+    checkoutUrl: createCheckOutSession.url,
+    originalAmount: originalAmount,
+    discountAmount: discountAmount,
+    totalAmount: finalAmount,
+    appliedDiscount: appliedDiscount,
+  };
+}
+//helper medicine
+const getMedicinePricing = async (
+  medicineId: string,
+  variationId: string,
+  unitId: string
+): Promise<{ sellingPrice: number; dosage: string; unitPerBox: string }> => {
+  const medicine = await Medicine.findById(medicineId);
+  if (!medicine) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Medicine not found');
+  }
+
+  const variation = medicine.variations.find(
+    (v: any) => v._id.toString() === variationId
+  );
+  if (!variation) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Medicine variation not found');
+  }
+
+  const unit = variation.units.find(
+    (u: any) => u._id.toString() === unitId
+  );
+  if (!unit) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Medicine unit not found');
+  }
+
+  return {
+    sellingPrice: unit.sellingPrice,
+    dosage: variation.dosage,
+    unitPerBox: unit.unitPerBox,
+  };
+};
 
 const createConsultationSuccess = async (
   session_id: string,
@@ -567,4 +844,5 @@ export const ConsultationService = {
   withdrawDoctorMoney,
   buyMedicine,
   buyMedicineSuccess,
+  getMedicinePricing
 };

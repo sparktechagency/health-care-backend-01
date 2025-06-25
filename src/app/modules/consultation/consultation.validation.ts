@@ -27,55 +27,97 @@ const createConsultationZodSchema = z.object({
       })
     ),
 
-    medicins: z
-      .array(
-        z
-          .object({
-            _id: z
-              .string({
-                invalid_type_error: '_id must be a string',
-              })
-              .optional()
-              .optional(),
-            count: z
-              .number({
-                invalid_type_error: 'Count must be a number',
-              })
-              .optional(),
+    // medicins: z
+    //   .array(
+    //     z
+    //       .object({
+    //         _id: z
+    //           .string({
+    //             invalid_type_error: '_id must be a string',
+    //           })
+    //           .optional()
+    //           .optional(),
+    //         count: z
+    //           .number({
+    //             invalid_type_error: 'Count must be a number',
+    //           })
+    //           .optional(),
 
-            total: z
-              .string({
-                invalid_type_error: 'Total must be a string',
-              })
-              .optional(),
-          })
-          .optional()
-      )
-      .optional(),
-    suggestedMedicine: z
-      .array(
-        z.object({
-          _id: z
-            .string({
-              required_error: '_id is required',
-              invalid_type_error: '_id must be a string',
-            })
-            .optional(),
-          count: z.number({
-            required_error: 'Count is required',
-            invalid_type_error: 'Count must be a number',
-          }),
-          dosage: z.string({
-            required_error: 'Dosage is required',
-            invalid_type_error: 'Dosage must be a string',
-          }),
-          total: z.string({
-            required_error: 'Total is required',
-            invalid_type_error: 'Total must be a string',
-          }),
+    //         total: z
+    //           .string({
+    //             invalid_type_error: 'Total must be a string',
+    //           })
+    //           .optional(),
+    //       })
+    //       .optional()
+    //   )
+    //   .optional(),
+
+medicins: z
+  .array(
+    z.object({
+      _id: z.string().optional(),
+      dosage: z.string().optional(),
+      unitPerBox: z.string().optional(),
+      count: z.number().optional(),
+      total: z.string().optional(),
+    })
+  )
+  .optional(),
+
+
+
+    // suggestedMedicine: z
+    //   .array(
+    //     z.object({
+    //       _id: z
+    //         .string({
+    //           required_error: '_id is required',
+    //           invalid_type_error: '_id must be a string',
+    //         })
+    //         .optional(),
+    //       count: z.number({
+    //         required_error: 'Count is required',
+    //         invalid_type_error: 'Count must be a number',
+    //       }),
+    //       dosage: z.string({
+    //         required_error: 'Dosage is required',
+    //         invalid_type_error: 'Dosage must be a string',
+    //       }),
+    //       total: z.string({
+    //         required_error: 'Total is required',
+    //         invalid_type_error: 'Total must be a string',
+    //       }),
+    //     })
+    //   )
+    //   .optional(),
+suggestedMedicine: z
+  .array(
+    z.object({
+      medicineId: z.string({
+        required_error: 'medicineId is required',
+        invalid_type_error: 'medicineId must be a string',
+      }),
+      dosage: z.string({
+        required_error: 'Dosage is required',
+        invalid_type_error: 'Dosage must be a string',
+      }),
+      unitPerBox: z.string({
+        required_error: 'unitPerBox is required',
+        invalid_type_error: 'unitPerBox must be a string',
+      }),
+      count: z.number({
+        required_error: 'Count is required',
+        invalid_type_error: 'Count must be a number',
+      }),
+      total: z
+        .string({
+          invalid_type_error: 'Total must be a string',
         })
-      )
-      .optional(),
+        .optional(),
+    })
+  )
+  .optional(),
 
     doctorId: z
       .string({

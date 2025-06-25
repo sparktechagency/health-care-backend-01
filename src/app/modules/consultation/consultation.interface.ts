@@ -1,4 +1,4 @@
-import { Types, Model } from 'mongoose';
+import { Types, Model, Schema } from 'mongoose';
 type IQNA = { question: string; answer: string };
 export type IMedicineItem = {
   _id: Types.ObjectId;
@@ -6,6 +6,17 @@ export type IMedicineItem = {
   count: number;
   total: string;
 };
+
+
+export interface ISelectedMedicine {
+  medicineId: Schema.Types.ObjectId;
+  variationId: Schema.Types.ObjectId; // Reference to specific variation
+  unitId: Schema.Types.ObjectId; // Reference to specific unit within variation
+  count: number;
+  total: number;
+}
+
+
 export type IConsultation = {
   _id?: Types.ObjectId;
   QNA: Array<IQNA>;
@@ -13,7 +24,21 @@ export type IConsultation = {
   userId: Types.ObjectId;
   category: Types.ObjectId;
   subCategory: Types.ObjectId;
-  medicins?: [IMedicineItem];
+  // medicins?: [IMedicineItem];
+  selectedMedicines: ISelectedMedicine[];
+    medicins?: Array<{
+    _id: Schema.Types.ObjectId;
+    count: number;
+    total: string;
+  }>;
+   originalAmount?: number;
+  discountAmount?: number;
+  appliedDiscount?: {
+    discountId: string;
+    discountCode: string;
+    discountPercentage: number;
+    discountAmount: number;
+  };
   consultationType?: string;
   totalAmount?: number;
   pdfFile: string;
@@ -25,7 +50,13 @@ export type IConsultation = {
   doctorId?: Types.ObjectId;
   trackingNo?: string;
   orderDate?: Date;
-  suggestedMedicine?: [IMedicineItem];
+  // suggestedMedicine?: [IMedicineItem];
+    suggestedMedicine?: Array<{
+    _id: Schema.Types.ObjectId;
+    dosage: string;
+    count: number;
+    total: string;
+  }>;
   rejectedOpinion?: string;
   opinion?: string;
   paid?: boolean;

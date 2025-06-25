@@ -2,10 +2,23 @@ import { z } from 'zod';
 
 const createDiscountZodSchema = z.object({
   body: z.object({
-    country: z.string({
-      required_error: 'country is required',
-      invalid_type_error: 'country should be type string',
+    country: z.array(
+      z.string({
+        required_error: 'Each country must be a string',
+        invalid_type_error: 'Each country should be type string',
+      })
+    ).nonempty({
+      message: 'At least one country is required',
     }),
+//     country: z.array(
+//   z.string({
+//     required_error: 'Each country must be a string',
+//     invalid_type_error: 'Each country should be type string',
+//   })
+// ).nonempty({
+//   message: 'At least one country is required',
+// }),
+
     name: z.string({
       required_error: 'name is required',
       invalid_type_error: 'name should be type string',
@@ -18,9 +31,9 @@ const createDiscountZodSchema = z.object({
       required_error: 'endDate is required',
       invalid_type_error: 'endDate should be type string',
     }),
-    amount: z.number({
-      required_error: 'amount is required',
-      invalid_type_error: 'amount should be type number',
+    discountCode: z.string({
+      required_error: 'discountCode is required',
+      invalid_type_error: 'discountCode should be type String',
     }),
     
   }),

@@ -1,11 +1,12 @@
 import { Model, Types } from 'mongoose';
 
-export type IDiscount = {
-  country: string;
+export interface IDiscount extends Document {
   name: string;
+  country: string[];
+  discountCode: string;
   startDate: Date;
   endDate: Date;
-  amount: number;
-};
+  parcentage: number; 
+}
 
 export type DiscountModel = Model<IDiscount>;

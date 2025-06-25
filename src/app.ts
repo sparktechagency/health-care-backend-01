@@ -20,14 +20,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 //file retrieve
-<<<<<<< HEAD
-// app.use(express.static('uploads'));
-app.use('/uploads', express.static('uploads'));
-=======
 app.use(express.static('uploads'));
 app.use('/uploads/images', express.static('uploads/images'));
 
->>>>>>> bd1e95707824bb975fc6d26107c97d0db26b3e6c
 //router
 app.use('/api/v1', router);
 
