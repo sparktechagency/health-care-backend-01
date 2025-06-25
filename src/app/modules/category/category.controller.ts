@@ -7,7 +7,7 @@ import { CategoryService } from './category.service';
 const createCategory = catchAsync(async (req: Request, res: Response) => {
   let image: any;
   if (req.files && 'image' in req.files && req.files.image[0]) {
-    image = `/images/${req.files.image[0].filename}`;
+    image = `uploads/images/${req.files.image[0].filename}`;
   }
   const data = {
     ...req.body,

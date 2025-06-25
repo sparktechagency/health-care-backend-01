@@ -107,6 +107,7 @@ const apiRoutes = [
     path: '/europe/affiliated-doctor',
     route: AffliatedRoutes
   },
+  
 ];
 
 apiRoutes.forEach(route => router.use(route.path, route.route));

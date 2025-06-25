@@ -51,7 +51,7 @@ const getMyConsultations = catchAsync(async (req: Request, res: Response) => {
 const updateConsultation = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
   if (req.files && 'pdfFile' in req.files && req.files.pdfFile) {
-    req.body.pdfFile = `/uploads/pdfFiles/${req.files.pdfFile[0].filename}`;
+    req.body.pdfFile = `uploads/pdfFiles/${req.files.pdfFile[0].filename}`;
   }
   const result = await ConsultationService.updateConsultation(id, req.body);
   sendResponse(res, {

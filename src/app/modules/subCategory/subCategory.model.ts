@@ -7,6 +7,7 @@ const subCategorySchema = new Schema<ISubCategory, SubCategoryModel>(
     category: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
     image: { type: String, required: true },
     details: { type: String, required: true },
+    subDetails: { type: String, required: true },
   },
   { timestamps: true }
 );

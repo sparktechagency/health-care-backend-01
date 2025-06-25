@@ -25,7 +25,9 @@ const createConsultation = async (
   payload: IConsultation,
   userId: string
 ): Promise<any> => {
+
   payload.userId = new Types.ObjectId(userId);
+
   const result = await Consultation.create(payload);
   if (!result) {
     throw new ApiError(
@@ -33,22 +35,26 @@ const createConsultation = async (
       'Failed to create consultation!'
     );
   }
-  const createCheckOutSession = await stripeHelper.createCheckoutSession(
-    userId,
-    result._id.toString()
-  );
 
+  const createCheckOutSession = await stripeHelper.createCheckoutSession(
+  userId,
+  result._id.toString()
+);
   return createCheckOutSession.url;
 };
+
+
 const createConsultationSuccess = async (
   session_id: string,
   id: string,
   res: Response
 ): Promise<any> => {
+
   const consultation: any = await Consultation.findById(id)
     .populate('userId')
     .populate('subCategory')
     .populate('doctorId');
+    
   const result = await stripe.checkout.sessions.retrieve(session_id);
   if (result.payment_status === 'paid') {
     const paymentIntentID = result.payment_intent;
@@ -68,7 +74,7 @@ const createConsultationSuccess = async (
       id,
       {
         $set: {
-          doctorId: selectRandomDoctor._id,
+          doctorId: selectRandomDoctor?._id,
           status: STATUS.PENDING,
           paymentIntentID,
         },

@@ -4,7 +4,10 @@ import fs from 'fs';
 import path from 'path';
 import ApiError from '../errors/ApiError';
 import { StatusCodes } from 'http-status-codes';
+
+
 const createCheckoutSession = async (userId: string, id: string) => {
+
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card', 'ideal'],
     line_items: [
@@ -21,14 +24,37 @@ const createCheckoutSession = async (userId: string, id: string) => {
       },
     ],
     mode: 'payment',
-    success_url: `https://api.dokterforyou.com/api/v1/consultation/create/success?session_id={CHECKOUT_SESSION_ID}&id=${id}`,
+    success_url: `http://10.0.70.30:5002/api/v1/consultation/create/success?session_id={CHECKOUT_SESSION_ID}&id=${id}`,
     cancel_url: `https://www.dokterforyou.com/profile?isSuccess=false`,
     metadata: {
       userId,
     },
   });
+
+
   return session;
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const createPaymentLink = async (product: Stripe.Product) => {
   const paymentLink = await stripe.paymentLinks.create({
     line_items: [

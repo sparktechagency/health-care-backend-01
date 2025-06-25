@@ -7,6 +7,7 @@ export type ISubCategory = {
   image: string;
   totalQuestions?: number;
   details: string;
+  subDetails: string;
 };
 
 export type SubCategoryModel = Model<ISubCategory>;

@@ -4,8 +4,26 @@ import sendResponse from '../../../shared/sendResponse';
 import { StatusCodes } from 'http-status-codes';
 import { ConsultationService } from './consultation.service';
 import ApiError from '../../../errors/ApiError';
+
+
+// const createConsultation = catchAsync(async (req: Request, res: Response) => {
+
+//   const result = await ConsultationService.createConsultation(req.body, req.user?.id);
+//   sendResponse(res, {
+//     statusCode: StatusCodes.CREATED,
+//     success: true,
+//     message: 'Consultation created successfully',
+//     data: result,
+//   });
+   
+// });
 const createConsultation = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user?.id;
+
+  if (!userId) {
+    throw new ApiError(StatusCodes.UNAUTHORIZED, 'User not authenticated');
+  }
+
   const result = await ConsultationService.createConsultation(req.body, userId);
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,
@@ -14,18 +32,23 @@ const createConsultation = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
+
+
 const createConsultationSuccess = catchAsync(
   async (req: Request, res: Response) => {
     const { session_id, id } = req.query;
+
+    console.log("consultation id", id)
     if (!session_id || !id) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
         'Session id and id are required'
       );
     }
+
     const result = await ConsultationService.createConsultationSuccess(
-      session_id.toString(),
-      id.toString(),
+      session_id!.toString(),
+      id!.toString(),
       res
     );
     return res.redirect('https://www.dokterforyou.com/profile?isSuccess=true');
@@ -51,7 +74,7 @@ const getMyConsultations = catchAsync(async (req: Request, res: Response) => {
 const updateConsultation = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
   if (req.files && 'pdfFile' in req.files && req.files.pdfFile) {
-    req.body.pdfFile = `/uploads/pdfFiles/${req.files.pdfFile[0].filename}`;
+    req.body.pdfFile = `uploads/pdfFiles/${req.files.pdfFile[0].filename}`;
   }
   const result = await ConsultationService.updateConsultation(id, req.body);
   sendResponse(res, {

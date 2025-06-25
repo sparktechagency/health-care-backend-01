@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AffiliatedDoctorService } from './affliated.service';
 import fileUploadHandler from '../../../middlewares/fileUploadHandler';
+import { IPaginationOptions } from '../../../../types/pagination';
 
 
 export const AffiliatedDoctorController = {
@@ -23,7 +24,7 @@ export const AffiliatedDoctorController = {
           'image' in req.files &&
           Array.isArray((req.files as { [fieldname: string]: Express.Multer.File[] })['image'])
         ) {
-          image = `/uploads/images/${(req.files as { [fieldname: string]: Express.Multer.File[] })['image'][0].filename}`;
+          image = `uploads/images/${(req.files as { [fieldname: string]: Express.Multer.File[] })['image'][0].filename}`;
         }
 
         if (!name || !specialization || !image) {
@@ -73,7 +74,7 @@ export const AffiliatedDoctorController = {
           'image' in req.files &&
           Array.isArray((req.files as { [fieldname: string]: Express.Multer.File[] })['image'])
         ) {
-          image = `/uploads/images/${(req.files as { [fieldname: string]: Express.Multer.File[] })['image'][0].filename}`;
+          image = `uploads/images/${(req.files as { [fieldname: string]: Express.Multer.File[] })['image'][0].filename}`;
         }
 
       const updatedDoctor = await AffiliatedDoctorService.updateDoctor(id, { name, specialization, image: image ?? "" });
@@ -101,21 +102,32 @@ export const AffiliatedDoctorController = {
   },
 
   // Get all affiliated doctors
-  getAllDoctors: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const doctors = await AffiliatedDoctorService.getAllDoctors();
-      res.status(200).json({
-        success: true,
-        data: doctors,
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching affiliated doctors',
-        errorMessages: error,
-      });
-    }
-  },
+getAllDoctors: async (req: Request, res: Response): Promise<void> => {
+  try {
+    const paginationOptions: IPaginationOptions = {
+      page: req.query.page ? parseInt(req.query.page as string, 10) : undefined,
+      limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
+      sortBy: req.query.sortBy as string,
+      sortOrder: (req.query.sortOrder === 'asc' || req.query.sortOrder === 'desc')
+        ? req.query.sortOrder as 'asc' | 'desc'
+        : undefined,
+    };
+
+    const result = await AffiliatedDoctorService.getAllDoctors(paginationOptions);
+
+    res.status(200).json({
+      success: true,
+      data: result.data,
+      meta: result.meta,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching affiliated doctors',
+      errorMessages: error,
+    });
+  }
+},
 
   // Get an affiliated doctor by ID
   getDoctorById: async (req: Request, res: Response): Promise<void> => {

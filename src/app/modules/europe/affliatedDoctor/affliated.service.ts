@@ -1,5 +1,7 @@
 import { AffiliatedDoctor } from './affliated.model';
 import { IAffiliatedDoctor } from './affliated.interface';
+import { IPaginationOptions } from '../../../../types/pagination';
+import { paginationHelper } from '../../../../helpers/paginationHelper';
 
 export const AffiliatedDoctorService = {
   // Create a new affiliated doctor
@@ -16,10 +18,28 @@ export const AffiliatedDoctorService = {
   },
 
   // Get all affiliated doctors
-  getAllDoctors: async () => {
-    const doctors = await AffiliatedDoctor.find();
-    return doctors;
-  },
+getAllDoctors: async (options: IPaginationOptions) => {
+  const { page, limit, skip, sortBy, sortOrder } = paginationHelper.calculatePagination(options);
+
+  const sortCondition: { [key: string]: 1 | -1 } = {};
+  sortCondition[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+  const doctors = await AffiliatedDoctor.find()
+    .sort(sortCondition)
+    .skip(skip)
+    .limit(limit);
+
+  const total = await AffiliatedDoctor.countDocuments();
+
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+    },
+    data: doctors,
+  };
+},
 
   // Get a single affiliated doctor by ID
   getDoctorById: async (id: string) => {
