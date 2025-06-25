@@ -6,6 +6,7 @@ const subCategorySchema = new Schema<ISubCategory, SubCategoryModel>(
     name: { type: String, required: true },
     category: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
     image: { type: String, required: true },
+    introduction: { type: String, required: false },
     details: { type: String, required: true },
     subDetails: { type: String, required: true },
   },
