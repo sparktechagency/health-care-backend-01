@@ -303,6 +303,88 @@ const getMonthlyWorkLoad = async (year: number) => {
       )?.count || 0,
   }));
 };
+export const assignDoctorByWorkload = async (doctors: any[]): Promise<string> => {
+  // Get consultation counts for each doctor
+  const doctorConsultationCounts = await Promise.all(
+    doctors.map(async (doctor) => {
+      const consultationCount = await Consultation.countDocuments({
+        doctorId: doctor._id,
+        status: { 
+          $in: [
+            STATUS.PENDING, 
+            STATUS.PROCESSING, 
+            STATUS.ACCEPTED
+          ] 
+        }, // Count only active consultations
+      });
+      
+      // Get total consultations for additional balancing
+      const totalConsultations = await Consultation.countDocuments({
+        doctorId: doctor._id
+      });
+      
+      // Get consultations created today for even more granular balancing
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const todayConsultations = await Consultation.countDocuments({
+        doctorId: doctor._id,
+        createdAt: { $gte: today, $lt: tomorrow }
+      });
+      
+      return {
+        doctorId: doctor._id.toString(),
+        doctorName: `${doctor.firstName} ${doctor.lastName}`,
+        country: doctor.country,
+        consultationCount,
+        totalConsultations,
+        todayConsultations,
+        // Create a weighted score for better load balancing
+        loadScore: (consultationCount * 3) + (todayConsultations * 2) + (totalConsultations * 0.1),
+      };
+    })
+  );
+
+  // Log all doctor loads for debugging
+  console.log('Doctor workload analysis:');
+  doctorConsultationCounts.forEach(doctor => {
+    console.log(`${doctor.doctorName}: Active=${doctor.consultationCount}, Today=${doctor.todayConsultations}, Total=${doctor.totalConsultations}, Score=${doctor.loadScore}`);
+  });
+
+  // Sort doctors by load score (ascending - least busy first)
+  // If scores are equal, sort by doctorId to ensure consistent ordering
+  doctorConsultationCounts.sort((a, b) => {
+    if (a.loadScore !== b.loadScore) {
+      return a.loadScore - b.loadScore;
+    }
+    // Secondary sort by doctorId for consistency when scores are equal
+    return a.doctorId.localeCompare(b.doctorId);
+  });
+
+  // If multiple doctors have the same lowest score, use round-robin approach
+  const lowestScore = doctorConsultationCounts[0].loadScore;
+  const doctorsWithLowestScore = doctorConsultationCounts.filter(d => d.loadScore === lowestScore);
+  
+  let selectedDoctor;
+  
+  if (doctorsWithLowestScore.length > 1) {
+    // Use round-robin based on current timestamp for equal-load doctors
+    const roundRobinIndex = Math.floor(Date.now() / 1000) % doctorsWithLowestScore.length;
+    selectedDoctor = doctorsWithLowestScore[roundRobinIndex];
+    console.log(`Multiple doctors with same load (${lowestScore}), using round-robin selection (${roundRobinIndex})`);
+  } else {
+    selectedDoctor = doctorConsultationCounts[0];
+  }
+  
+  console.log(`Doctor assigned: ${selectedDoctor.doctorName} from ${selectedDoctor.country} (Active=${selectedDoctor.consultationCount}, Score=${selectedDoctor.loadScore})`);
+  
+  return selectedDoctor.doctorId;
+};
+
+
+
 export const HelperService = {
   getAllDataFromDB,
   getSingleDataFromDB,
@@ -312,4 +394,5 @@ export const HelperService = {
   getMonthlyEarnings,
   getMonthlyUserCount,
   getMonthlyWorkLoad,
+  assignDoctorByWorkload
 };

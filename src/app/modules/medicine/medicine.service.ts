@@ -14,6 +14,7 @@ const createMedicine = async (payload: IMedicine): Promise<IMedicine> => {
   return result;
 };
 
+
 const getAllMedicines = async (
   queryFields: Record<string, any>
 ): Promise<IMedicine[]> => {

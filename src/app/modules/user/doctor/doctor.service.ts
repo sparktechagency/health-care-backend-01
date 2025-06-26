@@ -412,4 +412,5 @@ export const DoctorService = {
   setUpStripeConnectAccount,
   getDoctorEarningsFromDB,
   getDoctorEarningHistory,
+  uploadFileToStripe
 };

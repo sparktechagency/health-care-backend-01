@@ -22,6 +22,61 @@ import { emailHelper } from '../../../helpers/emailHelper';
 import { emailTemplate } from '../../../shared/emailTemplate';
 import { Medicine } from '../medicine/medicine.model';
 import { Discount } from '../discount/discount.model';
+import {assignDoctorByWorkload} from '../../../helpers/helper.service'
+
+// Helper function to find a doctor for consultation based on category and country
+const findDoctorForConsultation = async (country?: string): Promise<string | null> => {
+  try {
+    // Find all available doctors regardless of category
+    const searchCriteria: any = {
+      role: USER_ROLES.DOCTOR,
+      status: 'active', // Only active doctors
+      verified: true, // Only verified doctors
+    };
+
+    // Only filter by country if provided
+    if (country) {
+      searchCriteria.country = country;
+    }
+
+    const doctors = await User.find(searchCriteria)
+      .select('_id firstName lastName country')
+      .sort({ _id: 1 }); // Consistent ordering
+
+    if (!doctors || doctors.length === 0) {
+      console.warn(`No doctors found${country ? ` in country: ${country}` : ''}`);
+      
+      // If no doctors found in specific country, try to find any available doctor globally
+      if (country) {
+        console.log('Searching for doctors globally...');
+        const globalDoctors = await User.find({
+          role: USER_ROLES.DOCTOR,
+          status: 'active',
+          verified: true,
+        })
+        .select('_id firstName lastName country')
+        .sort({ _id: 1 });
+        
+        if (!globalDoctors || globalDoctors.length === 0) {
+          console.warn('No doctors found globally');
+          return null;
+        }
+        
+        // Use global doctors if country-specific search failed
+        return await assignDoctorByWorkload(globalDoctors);
+      }
+      
+      return null;
+    }
+
+    console.log(`Found ${doctors.length} available doctors for assignment`);
+    return await assignDoctorByWorkload(doctors);
+    
+  } catch (error) {
+    console.error('Error in findDoctorForConsultation:', error);
+    return null;
+  }
+};
 
 // const createConsultation = async (
 //   payload: IConsultation,
@@ -146,11 +201,23 @@ const createConsultation = async (
   }
   const userCountry = user.country;
 
-  // Calculate totals for selected medicines
+  // Auto-assign doctor based on load balancing (no category restriction)
+  if (!payload.doctorId) {
+    const assignedDoctorId = await findDoctorForConsultation(userCountry);
+    if (assignedDoctorId) {
+      payload.doctorId = new Types.ObjectId(assignedDoctorId);
+    } else {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'No available doctors found at the moment. Please try again later.'
+      );
+    }
+  }
+
+  // Calculate totals for selected medicines (keeping your existing logic)
   if (payload.selectedMedicines && payload.selectedMedicines.length > 0) {
     for (const selectedMedicine of payload.selectedMedicines) {
       try {
-        // Fetch the medicine to get pricing information
         const medicine = await Medicine.findById(selectedMedicine.medicineId);
         if (!medicine) {
           throw new ApiError(
@@ -159,7 +226,6 @@ const createConsultation = async (
           );
         }
 
-        // Find the specific variation
         const variation = medicine.variations.find(
           (v: any) => v._id.toString() === selectedMedicine.variationId.toString()
         );
@@ -170,7 +236,6 @@ const createConsultation = async (
           );
         }
 
-        // Find the specific unit within the variation
         const unit = variation.units.find(
           (u: any) => u._id.toString() === selectedMedicine.unitId.toString()
         );
@@ -181,7 +246,6 @@ const createConsultation = async (
           );
         }
 
-        // Calculate total for this medicine selection
         const medicineTotal = unit.sellingPrice * selectedMedicine.count;
         selectedMedicine.total = medicineTotal;
         originalAmount += medicineTotal;
@@ -195,7 +259,7 @@ const createConsultation = async (
     }
   }
 
-  // Apply discount if discount code is provided
+  // Apply discount logic (keeping your existing logic)
   if (payload.discountCode) {
     try {
       const discount = await Discount.findOne({
@@ -211,7 +275,6 @@ const createConsultation = async (
         );
       }
 
-      // Check if the discount is applicable to the user's country
       if (discount.country && discount.country.length > 0 && !discount.country.includes(userCountry)) {
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
@@ -219,7 +282,6 @@ const createConsultation = async (
         );
       }
 
-      // Check if discount percentage is valid
       if (!discount.parcentage || discount.parcentage <= 0 || discount.parcentage > 100) {
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
@@ -227,7 +289,6 @@ const createConsultation = async (
         );
       }
 
-      // Calculate discount amount
       discountAmount = (originalAmount * discount.parcentage) / 100;
       finalAmount = originalAmount - discountAmount;
 
@@ -238,7 +299,6 @@ const createConsultation = async (
         discountAmount: discountAmount
       };
 
-      // Ensure final amount is not negative
       if (finalAmount < 0) {
         finalAmount = 0;
       }
@@ -256,7 +316,6 @@ const createConsultation = async (
     finalAmount = originalAmount;
   }
 
-  // Set amounts in payload
   payload.originalAmount = originalAmount;
   payload.discountAmount = discountAmount;
   payload.totalAmount = finalAmount;
@@ -287,8 +346,9 @@ const createConsultation = async (
     discountAmount: discountAmount,
     totalAmount: finalAmount,
     appliedDiscount: appliedDiscount,
+    assignedDoctorId: payload.doctorId,
   };
-}
+};
 //helper medicine
 const getMedicinePricing = async (
   medicineId: string,
@@ -531,38 +591,202 @@ Kind regards, team Doctor For You`,
 };
 
 const getAllConsultations = async (query: any): Promise<any> => {
+  const searchQuery: any = { ...query };
+
+  // Handle consultation type filtering
   if (query.consultationType) {
     if (query.consultationType === CONSULTATION_TYPE.FORWARDTO) {
-      query.forwardToPartner = true;
+      searchQuery.forwardToPartner = true;
     } else if (query.consultationType === CONSULTATION_TYPE.MEDICATION) {
-      query.medicins = { $exists: true, $ne: [] };
+      searchQuery.medicins = { $exists: true, $ne: [] };
+    }
+    delete searchQuery.consultationType; // Remove from query as it's processed
+  }
+
+  // Handle doctor-specific filtering
+  if (query.doctorId) {
+    searchQuery.doctorId = new Types.ObjectId(query.doctorId);
+  }
+
+  // Set default status filter if not provided
+  if (!searchQuery.status) {
+    searchQuery.status = {
+      $in: [
+        STATUS.DRAFT,
+        STATUS.PENDING,
+        STATUS.PROCESSING,
+        STATUS.PRESCRIBED,
+        STATUS.ACCEPTED,
+        STATUS.REJECTED,
+        'delivered', // Add this to your STATUS enum if needed
+      ],
+    };
+  } else {
+    // Ensure status is always an array for $in operator
+    if (typeof searchQuery.status === 'string') {
+      searchQuery.status = { $in: [searchQuery.status] };
+    } else if (Array.isArray(searchQuery.status)) {
+      searchQuery.status = { $in: searchQuery.status };
     }
   }
-  const result = await Consultation.find({
-    ...query,
-    status: {
-      $in: query.status || [
-        'pending',
-        'processing',
-        'prescribed',
-        'accepted',
-        'rejected',
-        'delivered',
-      ],
-    },
-  })
+
+  const page = Number(query.page || 1);
+  const limit = Number(query.limit || 10);
+  const skip = limit * (page - 1);
+
+  const result = await Consultation.find(searchQuery)
     .populate('category')
     .populate('subCategory')
     .populate('medicins._id')
     .populate('suggestedMedicine._id')
-    .populate('doctorId')
-    .populate('userId')
-    .skip(Number(query.limit || 10) * (Number(query.page || 1) - 1));
+    .populate({
+      path: 'doctorId',
+      select: 'firstName lastName email designation profile subCategory',
+      populate: {
+        path: 'subCategory',
+        select: 'name'
+      }
+    })
+    .populate({
+      path: 'userId',
+      select: 'firstName lastName email profile contact country'
+    })
+    .sort({ createdAt: -1 }) // Sort by newest first
+    .skip(skip)
+    .limit(limit);
+
   if (!result.length) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Consultation not found!');
+    throw new ApiError(StatusCodes.NOT_FOUND, 'No consultations found!');
   }
-  return result;
+
+  // Get total count for pagination
+  const totalCount = await Consultation.countDocuments(searchQuery);
+
+  return {
+    consultations: result,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(totalCount / limit),
+      totalCount,
+      hasNext: page < Math.ceil(totalCount / limit),
+      hasPrev: page > 1
+    }
+  };
 };
+
+// Function to get consultations by doctor ID
+const getConsultationsByDoctorId = async (doctorId: string, query: any = {}): Promise<any> => {
+  const searchQuery = {
+    doctorId: new Types.ObjectId(doctorId),
+    ...query
+  };
+
+  // Set default status filter if not provided
+  if (!searchQuery.status) {
+    searchQuery.status = {
+      $in: [
+        STATUS.PENDING,
+        STATUS.PROCESSING,
+        STATUS.PRESCRIBED,
+        STATUS.ACCEPTED,
+      ],
+    };
+  }
+
+  const page = Number(query.page || 1);
+  const limit = Number(query.limit || 10);
+  const skip = limit * (page - 1);
+
+  const consultations = await Consultation.find(searchQuery)
+    .populate('category')
+    .populate('subCategory')
+    .populate('medicins._id')
+    .populate('suggestedMedicine._id')
+    .populate({
+      path: 'userId',
+      select: 'firstName lastName email profile contact dateOfBirth gender'
+    })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+
+  const totalCount = await Consultation.countDocuments(searchQuery);
+
+  return {
+    consultations,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(totalCount / limit),
+      totalCount,
+      hasNext: page < Math.ceil(totalCount / limit),
+      hasPrev: page > 1
+    }
+  };
+};
+
+// const getAllConsultations = async (query: any): Promise<any> => {
+//   const filter: any = { ...query };
+
+//   // Convert doctorId to ObjectId if present
+//   if (filter.doctorId) {
+//     try {
+//       filter.doctorId = new Types.ObjectId(filter.doctorId);
+//     } catch (err) {
+//       throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid doctorId');
+//     }
+//   }
+
+//   // Filter consultationType if necessary
+//   if (filter.consultationType) {
+//     if (filter.consultationType === 'forwardToPartner') {
+//       filter.forwardToPartner = true;
+//     } else if (filter.consultationType === 'medication') {
+//       filter.medicins = { $exists: true, $ne: [] };
+//     }
+//     delete filter.consultationType; // prevent querying nonexistent field
+//   }
+
+//   // Only apply status filter if not provided
+//   if (!filter.status) {
+//     filter.status = {
+//       $in: [
+//         'draft',
+//         'pending',
+//         'processing',
+//         'prescribed',
+//         'accepted',
+//         'rejected',
+//         'delivered',
+//       ],
+//     };
+//   }
+
+//   // Pagination
+//   const limit = Number(query.limit) || 10;
+//   const page = Number(query.page) || 1;
+//   const skip = limit * (page - 1);
+
+//   console.log('Consultation query filter:', filter);
+
+//   const result = await Consultation.find(filter)
+//     .populate('category')
+//     .populate('subCategory')
+//     .populate('medicins._id')
+//     .populate('suggestedMedicine._id')
+//     .populate('doctorId')
+//     .populate('userId')
+//     .skip(skip)
+//     .limit(limit);
+
+//   if (!result.length) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Consultation not found!');
+//   }
+
+//   return result;
+// };
+
+
+
 const getConsultationByID = async (id: string): Promise<any> => {
   const result = await Consultation.findById(id)
     .populate('category')
@@ -828,6 +1052,51 @@ If you make the payment before 3:00 PM on workdays, your prescription will be pr
   });
   return res.redirect(`https://www.dokterforyou.com/profile`);
 };
+
+// Function to get doctor workload statistics
+const getDoctorWorkloadStats = async (country?: string): Promise<any> => {
+  const matchCriteria: any = {
+    role: USER_ROLES.DOCTOR,
+    status: 'active',
+    verified: true
+  };
+  
+  if (country) {
+    matchCriteria.country = country;
+  }
+
+  const doctors = await User.find(matchCriteria).select('firstName lastName country');
+
+  const doctorStats = await Promise.all(
+    doctors.map(async (doctor) => {
+      const totalConsultations = await Consultation.countDocuments({
+        doctorId: doctor._id
+      });
+      
+      const activeConsultations = await Consultation.countDocuments({
+        doctorId: doctor._id,
+        status: { $in: [STATUS.PENDING, STATUS.PROCESSING, STATUS.ACCEPTED] }
+      });
+
+      const completedConsultations = await Consultation.countDocuments({
+        doctorId: doctor._id,
+        status: STATUS.PRESCRIBED
+      });
+
+      return {
+        doctorId: doctor._id,
+        doctorName: `${doctor.firstName} ${doctor.lastName}`,
+        country: doctor.country,
+        totalConsultations,
+        activeConsultations,
+        completedConsultations
+      };
+    })
+  );
+
+  return doctorStats.sort((a, b) => a.activeConsultations - b.activeConsultations);
+};
+
 export const ConsultationService = {
   createConsultation,
   createConsultationSuccess,
@@ -843,5 +1112,7 @@ export const ConsultationService = {
   withdrawDoctorMoney,
   buyMedicine,
   buyMedicineSuccess,
-  getMedicinePricing
+  getMedicinePricing,
+  getDoctorWorkloadStats,
+  getConsultationsByDoctorId
 };
