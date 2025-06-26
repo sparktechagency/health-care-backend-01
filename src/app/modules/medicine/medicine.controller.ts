@@ -102,10 +102,35 @@ const deleteMedicine = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+export const getUserMedicinesController = async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.userId; // or from req.user if using auth middleware
+
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required.' });
+    }
+
+    const consultations = await MedicineService.getUserMedicinesService(userId);
+
+    return res.status(200).json({
+      success: true,
+      data: consultations,
+    });
+  } catch (error) {
+    console.error('Error in getUserMedicinesController:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal Server Error',
+    });
+  }
+};
+
 export const MedicineController = {
   createMedicine,
   getAllMedicines,
   getMedicineById,
   updateMedicine,
   deleteMedicine,
+  getUserMedicinesController
+  
 };

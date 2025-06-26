@@ -20,6 +20,7 @@ router.post(
 );
 router.get('/', MedicineController.getAllMedicines);
 router.get('/:id', MedicineController.getMedicineById);
+router.get('/user-medicine/:userId', MedicineController.getUserMedicinesController)
 router.patch(
   '/:id',
   auth(...roleOfAccess),

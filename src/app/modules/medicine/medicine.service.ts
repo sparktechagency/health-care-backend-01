@@ -4,6 +4,8 @@ import { Medicine } from './medicine.model';
 import { IMedicine } from './medicine.interface';
 import { MedicineValidation } from './medicine.validation';
 import unlinkFile from '../../../shared/unlinkFile';
+import { Consultation } from '../consultation/consultation.model';
+import mongoose from 'mongoose';
 
 const createMedicine = async (payload: IMedicine): Promise<IMedicine> => {
   await MedicineValidation.createMedicineZodSchema.parseAsync(payload);
@@ -95,10 +97,28 @@ const deleteMedicine = async (id: string): Promise<IMedicine | null> => {
   return result;
 };
 
+export const getUserMedicinesService = async (userId: string) => {
+  try {
+    const consultations = await Consultation.find({
+      userId: new mongoose.Types.ObjectId(userId),
+    })
+      .select('selectedMedicines medicins suggestedMedicine')
+      .populate('selectedMedicines.medicineId')
+      .populate('medicins._id')
+      .populate('suggestedMedicine._id')
+      .lean();
+
+    return consultations;
+  } catch (error) {
+    throw new Error('Failed to fetch medicines for the user.');
+  }
+};
+
 export const MedicineService = {
   createMedicine,
   getAllMedicines,
   getMedicineById,
   updateMedicine,
   deleteMedicine,
+  getUserMedicinesService
 };

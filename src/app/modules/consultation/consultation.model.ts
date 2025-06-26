@@ -61,11 +61,11 @@ const consultationSchema = new Schema<IConsultation, ConsultationModel>(
           },
           variationId: {
             type: Schema.Types.ObjectId,
-            required: true, // ID of the specific variation chosen
+            required: true,
           },
           unitId: {
             type: Schema.Types.ObjectId,
-            required: true, // ID of the specific unit within variation
+            required: true, 
           },
           count: {
             type: Number,
@@ -136,30 +136,85 @@ const consultationSchema = new Schema<IConsultation, ConsultationModel>(
       type: String,
       required: false,
     },
-    suggestedMedicine: {
-      type: [
-        {
-          _id: {
-            type: Schema.Types.ObjectId,
-            ref: 'Medicine',
-            required: false,
-          },
-          dosage: {
-            type: String,
-            required: false,
-          },
-          count: {
-            type: Number,
-            required: true,
-          },
-          total: {
-            type: String,
-            required: false,
-          },
-        },
-      ],
-      required: false,
+    // suggestedMedicine: {
+    //   type: [
+    //     {
+    //       _id: {
+    //         type: Schema.Types.ObjectId,
+    //         ref: 'Medicine',
+    //         required: false,
+    //       },
+    //       dosage: {
+    //         type: String,
+    //         required: false,
+    //       },
+    //       count: {
+    //         type: Number,
+    //         required: true,
+    //       },
+    //       total: {
+    //         type: String,
+    //         required: false,
+    //       },
+    //     },
+    //   ],
+    //   required: false,
+    // },
+   
+//     suggestedMedicine: {
+//   type: [
+//     {
+//       _id: {
+//         type: Schema.Types.ObjectId,
+//         ref: 'Medicine',
+//         required: false,
+//       },
+//       dosage: {
+//         type: String,
+//         required: false,
+//       },
+//       count: {
+//         type: Number,
+//         required: true,
+//       },
+//       total: {
+//       type: Schema.Types.ObjectId,
+//         required: false, 
+//       },
+//       // unitId: {
+//       //   type: Schema.Types.ObjectId,
+//       //   required: false, 
+//       // },
+//     },
+//   ],
+//   required: false,
+// },
+
+suggestedMedicine: {
+  type: [
+    {
+      _id: {
+        type: Schema.Types.ObjectId,
+        ref: 'Medicine',
+        required: false,
+      },
+      dosage: {
+        type: String,  
+        required: false,
+      },
+      count: {
+        type: Number,
+        required: false,
+      },
+      total: {
+        type: String,  // store unitPerBox string, e.g. '10 tablets'
+        required: false,
+      },
     },
+  ],
+  required: false,
+},
+
     forwardToPartner: { type: Boolean, default: false, required: false },
     pharmecyAccepted: { type: Boolean, default: false, required: false },
     address: {

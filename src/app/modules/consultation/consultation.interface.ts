@@ -53,9 +53,9 @@ export type IConsultation = {
   // suggestedMedicine?: [IMedicineItem];
     suggestedMedicine?: Array<{
     _id: Schema.Types.ObjectId;
-    dosage: string;
+    dosage:Schema.Types.ObjectId;
     count: number;
-    total: string;
+    total: Schema.Types.ObjectId;
   }>;
   rejectedOpinion?: string;
   opinion?: string;

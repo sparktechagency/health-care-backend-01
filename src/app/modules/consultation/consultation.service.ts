@@ -30,8 +30,8 @@ const findDoctorForConsultation = async (country?: string): Promise<string | nul
     // Find all available doctors regardless of category
     const searchCriteria: any = {
       role: USER_ROLES.DOCTOR,
-      status: 'active', // Only active doctors
-      verified: true, // Only verified doctors
+      status: 'active', 
+      verified: true, 
     };
 
     // Only filter by country if provided
@@ -78,41 +78,45 @@ const findDoctorForConsultation = async (country?: string): Promise<string | nul
   }
 };
 
+
 // const createConsultation = async (
-//   payload: IConsultation,
+//   payload: IConsultation & { discountCode?: string },
 //   userId: string
 // ): Promise<any> => {
-
 //   payload.userId = new Types.ObjectId(userId);
+  
+//   let originalAmount = 0;
+//   let discountAmount = 0;
+//   let finalAmount = 0;
+//   let appliedDiscount = null;
 
-//   const result = await Consultation.create(payload);
-//   if (!result) {
+//   // Fetch user to get their country
+//   const user = await User.findById(userId);
+//   if (!user || !user.country) {
 //     throw new ApiError(
 //       StatusCodes.BAD_REQUEST,
-//       'Failed to create consultation!'
+//       'User or user country not found'
 //     );
 //   }
+//   const userCountry = user.country;
 
-//   const createCheckOutSession = await stripeHelper.createCheckoutSession(
-//   userId,
-//   result._id.toString()
-// );
-//   return createCheckOutSession.url;
-// };
+//   // Auto-assign doctor based on load balancing (no category restriction)
+//   if (!payload.doctorId) {
+//     const assignedDoctorId = await findDoctorForConsultation(userCountry);
+//     if (assignedDoctorId) {
+//       payload.doctorId = new Types.ObjectId(assignedDoctorId);
+//     } else {
+//       throw new ApiError(
+//         StatusCodes.BAD_REQUEST,
+//         'No available doctors found at the moment. Please try again later.'
+//       );
+//     }
+//   }
 
-// const createConsultation = async (
-//   payload: IConsultation,
-//   userId: string
-// ): Promise<any> => {
-//   payload.userId = new Types.ObjectId(userId);
-
-//   // Calculate totals for selected medicines
+//   // Calculate totals for selected medicines (keeping your existing logic)
 //   if (payload.selectedMedicines && payload.selectedMedicines.length > 0) {
-//     let totalAmount = 0;
-
 //     for (const selectedMedicine of payload.selectedMedicines) {
 //       try {
-//         // Fetch the medicine to get pricing information
 //         const medicine = await Medicine.findById(selectedMedicine.medicineId);
 //         if (!medicine) {
 //           throw new ApiError(
@@ -121,7 +125,6 @@ const findDoctorForConsultation = async (country?: string): Promise<string | nul
 //           );
 //         }
 
-//         // Find the specific variation
 //         const variation = medicine.variations.find(
 //           (v: any) => v._id.toString() === selectedMedicine.variationId.toString()
 //         );
@@ -132,7 +135,6 @@ const findDoctorForConsultation = async (country?: string): Promise<string | nul
 //           );
 //         }
 
-//         // Find the specific unit within the variation
 //         const unit = variation.units.find(
 //           (u: any) => u._id.toString() === selectedMedicine.unitId.toString()
 //         );
@@ -143,10 +145,9 @@ const findDoctorForConsultation = async (country?: string): Promise<string | nul
 //           );
 //         }
 
-//         // Calculate total for this medicine selection
 //         const medicineTotal = unit.sellingPrice * selectedMedicine.count;
 //         selectedMedicine.total = medicineTotal;
-//         totalAmount += medicineTotal;
+//         originalAmount += medicineTotal;
 
 //       } catch (error) {
 //         throw new ApiError(
@@ -155,12 +156,75 @@ const findDoctorForConsultation = async (country?: string): Promise<string | nul
 //         );
 //       }
 //     }
+//   }
 
-//     // Set the total amount for the consultation
-//     payload.totalAmount = totalAmount;
+//   // Apply discount logic (keeping your existing logic)
+//   if (payload.discountCode) {
+//     try {
+//       const discount = await Discount.findOne({
+//         discountCode: payload.discountCode.trim(),
+//         startDate: { $lte: new Date() },
+//         endDate: { $gte: new Date() }
+//       });
+
+//       if (!discount) {
+//         throw new ApiError(
+//           StatusCodes.BAD_REQUEST,
+//           'Invalid or expired discount code'
+//         );
+//       }
+
+//       if (discount.country && discount.country.length > 0 && !discount.country.includes(userCountry)) {
+//         throw new ApiError(
+//           StatusCodes.BAD_REQUEST,
+//           `This coupon code is not valid in your country (${userCountry})`
+//         );
+//       }
+
+//       if (!discount.parcentage || discount.parcentage <= 0 || discount.parcentage > 100) {
+//         throw new ApiError(
+//           StatusCodes.BAD_REQUEST,
+//           'Invalid discount percentage'
+//         );
+//       }
+
+//       discountAmount = (originalAmount * discount.parcentage) / 100;
+//       finalAmount = originalAmount - discountAmount;
+
+//       appliedDiscount = {
+//         discountId: discount._id.toString(),
+//         discountCode: discount.discountCode,
+//         discountPercentage: discount.parcentage,
+//         discountAmount: discountAmount
+//       };
+
+//       if (finalAmount < 0) {
+//         finalAmount = 0;
+//       }
+
+//     } catch (error) {
+//       if (error instanceof ApiError) {
+//         throw error;
+//       }
+//       throw new ApiError(
+//         StatusCodes.BAD_REQUEST,
+//         `Error applying discount: ${error instanceof Error ? error.message : error}`
+//       );
+//     }
+//   } else {
+//     finalAmount = originalAmount;
+//   }
+
+//   payload.originalAmount = originalAmount;
+//   payload.discountAmount = discountAmount;
+//   payload.totalAmount = finalAmount;
+  
+//   if (appliedDiscount) {
+//     payload.appliedDiscount = appliedDiscount;
 //   }
 
 //   const result = await Consultation.create(payload);
+
 //   if (!result) {
 //     throw new ApiError(
 //       StatusCodes.BAD_REQUEST,
@@ -170,22 +234,32 @@ const findDoctorForConsultation = async (country?: string): Promise<string | nul
 
 //   const createCheckOutSession = await stripeHelper.createCheckoutSession(
 //     userId,
-//     result._id.toString()
+//     result._id.toString(),
+//     finalAmount
 //   );
-  
+
 //   return {
 //     consultationId: result._id,
 //     checkoutUrl: createCheckOutSession.url,
-//     totalAmount: payload.totalAmount || 0,
+//     originalAmount: originalAmount,
+//     discountAmount: discountAmount,
+//     totalAmount: finalAmount,
+//     appliedDiscount: appliedDiscount,
+//     assignedDoctorId: payload.doctorId,
 //   };
 // };
+
+
+//helper medicine
+const CONSULTATION_FEE_EURO = 25;
 
 const createConsultation = async (
   payload: IConsultation & { discountCode?: string },
   userId: string
 ): Promise<any> => {
   payload.userId = new Types.ObjectId(userId);
-  
+
+  let medicineAmount = 0;
   let originalAmount = 0;
   let discountAmount = 0;
   let finalAmount = 0;
@@ -214,7 +288,7 @@ const createConsultation = async (
     }
   }
 
-  // Calculate totals for selected medicines (keeping your existing logic)
+  // Calculate medicine total
   if (payload.selectedMedicines && payload.selectedMedicines.length > 0) {
     for (const selectedMedicine of payload.selectedMedicines) {
       try {
@@ -248,7 +322,7 @@ const createConsultation = async (
 
         const medicineTotal = unit.sellingPrice * selectedMedicine.count;
         selectedMedicine.total = medicineTotal;
-        originalAmount += medicineTotal;
+        medicineAmount += medicineTotal;
 
       } catch (error) {
         throw new ApiError(
@@ -259,7 +333,10 @@ const createConsultation = async (
     }
   }
 
-  // Apply discount logic (keeping your existing logic)
+  // Always add fixed consultation fee
+  originalAmount = medicineAmount + CONSULTATION_FEE_EURO;
+
+  // Apply discount logic
   if (payload.discountCode) {
     try {
       const discount = await Discount.findOne({
@@ -275,7 +352,7 @@ const createConsultation = async (
         );
       }
 
-      if (discount.country && discount.country.length > 0 && !discount.country.includes(userCountry)) {
+      if (discount.country?.length > 0 && !discount.country.includes(userCountry)) {
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
           `This coupon code is not valid in your country (${userCountry})`
@@ -296,17 +373,13 @@ const createConsultation = async (
         discountId: discount._id.toString(),
         discountCode: discount.discountCode,
         discountPercentage: discount.parcentage,
-        discountAmount: discountAmount
+        discountAmount,
       };
 
-      if (finalAmount < 0) {
-        finalAmount = 0;
-      }
+      if (finalAmount < 0) finalAmount = 0;
 
     } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
+      if (error instanceof ApiError) throw error;
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
         `Error applying discount: ${error instanceof Error ? error.message : error}`
@@ -316,10 +389,11 @@ const createConsultation = async (
     finalAmount = originalAmount;
   }
 
+  // Store values in payload
   payload.originalAmount = originalAmount;
   payload.discountAmount = discountAmount;
   payload.totalAmount = finalAmount;
-  
+
   if (appliedDiscount) {
     payload.appliedDiscount = appliedDiscount;
   }
@@ -333,6 +407,7 @@ const createConsultation = async (
     );
   }
 
+  // Stripe Checkout Session
   const createCheckOutSession = await stripeHelper.createCheckoutSession(
     userId,
     result._id.toString(),
@@ -342,14 +417,15 @@ const createConsultation = async (
   return {
     consultationId: result._id,
     checkoutUrl: createCheckOutSession.url,
-    originalAmount: originalAmount,
-    discountAmount: discountAmount,
+    originalAmount,
+    discountAmount,
     totalAmount: finalAmount,
-    appliedDiscount: appliedDiscount,
+    appliedDiscount,
     assignedDoctorId: payload.doctorId,
   };
 };
-//helper medicine
+
+
 const getMedicinePricing = async (
   medicineId: string,
   variationId: string,
@@ -590,25 +666,105 @@ Kind regards, team Doctor For You`,
   return result;
 };
 
+// const getAllConsultations = async (query: any): Promise<any> => {
+//   const searchQuery: any = { ...query };
+
+//   // Handle consultation type filtering
+//   if (query.consultationType) {
+//     if (query.consultationType === CONSULTATION_TYPE.FORWARDTO) {
+//       searchQuery.forwardToPartner = true;
+//     } else if (query.consultationType === CONSULTATION_TYPE.MEDICATION) {
+//       searchQuery.medicins = { $exists: true, $ne: [] };
+//     }
+//     delete searchQuery.consultationType; // Remove from query as it's processed
+//   }
+
+//   // Handle doctor-specific filtering
+//   if (query.doctorId) {
+//     searchQuery.doctorId = new Types.ObjectId(query.doctorId);
+//   }
+
+//   // Set default status filter if not provided
+//   if (!searchQuery.status) {
+//     searchQuery.status = {
+//       $in: [
+//         STATUS.DRAFT,
+//         STATUS.PENDING,
+//         STATUS.PROCESSING,
+//         STATUS.PRESCRIBED,
+//         STATUS.ACCEPTED,
+//         STATUS.REJECTED,
+//         'delivered', // Add this to your STATUS enum if needed
+//       ],
+//     };
+//   } else {
+//     // Ensure status is always an array for $in operator
+//     if (typeof searchQuery.status === 'string') {
+//       searchQuery.status = { $in: [searchQuery.status] };
+//     } else if (Array.isArray(searchQuery.status)) {
+//       searchQuery.status = { $in: searchQuery.status };
+//     }
+//   }
+
+//   const page = Number(query.page || 1);
+//   const limit = Number(query.limit || 10);
+//   const skip = limit * (page - 1);
+
+//   const result = await Consultation.find(searchQuery)
+//     .populate('category')
+//     .populate('subCategory')
+//     .populate('medicins._id')
+//     .populate('suggestedMedicine._id')
+//     .populate({
+//       path: 'doctorId',
+//       select: 'firstName lastName email designation profile subCategory',
+//       populate: {
+//         path: 'subCategory',
+//         select: 'name'
+//       }
+//     })
+//     .populate({
+//       path: 'userId',
+//       select: 'firstName lastName email profile contact country'
+//     })
+//     .sort({ createdAt: -1 }) // Sort by newest first
+//     .skip(skip)
+//     .limit(limit);
+
+//   if (!result.length) {
+//     throw new ApiError(StatusCodes.NOT_FOUND, 'No consultations found!');
+//   }
+
+//   // Get total count for pagination
+//   const totalCount = await Consultation.countDocuments(searchQuery);
+
+//   return {
+//     consultations: result,
+//     pagination: {
+//       currentPage: page,
+//       totalPages: Math.ceil(totalCount / limit),
+//       totalCount,
+//       hasNext: page < Math.ceil(totalCount / limit),
+//       hasPrev: page > 1
+//     }
+//   };
+// };
 const getAllConsultations = async (query: any): Promise<any> => {
   const searchQuery: any = { ...query };
 
-  // Handle consultation type filtering
   if (query.consultationType) {
     if (query.consultationType === CONSULTATION_TYPE.FORWARDTO) {
       searchQuery.forwardToPartner = true;
     } else if (query.consultationType === CONSULTATION_TYPE.MEDICATION) {
       searchQuery.medicins = { $exists: true, $ne: [] };
     }
-    delete searchQuery.consultationType; // Remove from query as it's processed
+    delete searchQuery.consultationType;
   }
 
-  // Handle doctor-specific filtering
   if (query.doctorId) {
     searchQuery.doctorId = new Types.ObjectId(query.doctorId);
   }
 
-  // Set default status filter if not provided
   if (!searchQuery.status) {
     searchQuery.status = {
       $in: [
@@ -618,11 +774,10 @@ const getAllConsultations = async (query: any): Promise<any> => {
         STATUS.PRESCRIBED,
         STATUS.ACCEPTED,
         STATUS.REJECTED,
-        'delivered', // Add this to your STATUS enum if needed
+        'delivered',
       ],
     };
   } else {
-    // Ensure status is always an array for $in operator
     if (typeof searchQuery.status === 'string') {
       searchQuery.status = { $in: [searchQuery.status] };
     } else if (Array.isArray(searchQuery.status)) {
@@ -634,7 +789,7 @@ const getAllConsultations = async (query: any): Promise<any> => {
   const limit = Number(query.limit || 10);
   const skip = limit * (page - 1);
 
-  const result = await Consultation.find(searchQuery)
+  const consultationsRaw = await Consultation.find(searchQuery)
     .populate('category')
     .populate('subCategory')
     .populate('medicins._id')
@@ -644,33 +799,96 @@ const getAllConsultations = async (query: any): Promise<any> => {
       select: 'firstName lastName email designation profile subCategory',
       populate: {
         path: 'subCategory',
-        select: 'name'
-      }
+        select: 'name',
+      },
     })
     .populate({
       path: 'userId',
-      select: 'firstName lastName email profile contact country'
+      select: 'firstName lastName email profile contact country',
     })
-    .sort({ createdAt: -1 }) // Sort by newest first
+    .sort({ createdAt: -1 })
     .skip(skip)
-    .limit(limit);
+    .limit(limit)
+    .lean();
 
-  if (!result.length) {
+  if (!consultationsRaw.length) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'No consultations found!');
   }
 
-  // Get total count for pagination
+    const consultations = consultationsRaw.map((consultation) => {
+    let totalPrice = 0;
+    let medicineImage = '';
+
+    const updatedSuggestedMedicine = (consultation.suggestedMedicine || []).map((item: any) => {
+      const medicine = item?._id;
+      const count = item?.count || 1;
+
+      let variationDetails = null;
+      let unitDetails = null;
+      let unitPrice = 0;
+
+      if (medicine?.variations?.length) {
+        variationDetails = medicine.variations.find(
+          (v: any) => v._id?.toString() === item.dosage?.toString()
+        );
+
+        if (variationDetails) {
+          unitDetails = variationDetails.units.find(
+            (u: any) => u._id?.toString() === item.total?.toString()
+          );
+
+          unitPrice = unitDetails?.sellingPrice || 0;
+        }
+      }
+
+      // Set image from the first suggested medicine if available
+      if (!medicineImage && medicine?.image) {
+        medicineImage = medicine.image;
+      }
+
+      const itemTotalPrice = unitPrice * count;
+      totalPrice += itemTotalPrice;
+
+      return {
+        _id: medicine._id,
+        name: medicine.name,
+        company: medicine.company,
+        dosage: variationDetails
+          ? { _id: variationDetails._id, dosage: variationDetails.dosage }
+          : null,
+        count,
+        total: unitDetails
+          ? {
+              _id: unitDetails._id,
+              unitPerBox: unitDetails.unitPerBox,
+              sellingPrice: unitDetails.sellingPrice,
+            }
+          : null,
+        totalPrice: itemTotalPrice,
+         image: medicineImage,
+      };
+    });
+
+    const { totalAmount, ...rest } = consultation;
+
+    return {
+      ...rest,
+      suggestedMedicine: updatedSuggestedMedicine,
+      totalPrice,
+    };
+  });
+
   const totalCount = await Consultation.countDocuments(searchQuery);
 
   return {
-    consultations: result,
+    consultations,
     pagination: {
       currentPage: page,
       totalPages: Math.ceil(totalCount / limit),
       totalCount,
       hasNext: page < Math.ceil(totalCount / limit),
-      hasPrev: page > 1
-    }
+      hasPrev: page > 1,
+    },
   };
 };
 
@@ -724,69 +942,6 @@ const getConsultationsByDoctorId = async (doctorId: string, query: any = {}): Pr
   };
 };
 
-// const getAllConsultations = async (query: any): Promise<any> => {
-//   const filter: any = { ...query };
-
-//   // Convert doctorId to ObjectId if present
-//   if (filter.doctorId) {
-//     try {
-//       filter.doctorId = new Types.ObjectId(filter.doctorId);
-//     } catch (err) {
-//       throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid doctorId');
-//     }
-//   }
-
-//   // Filter consultationType if necessary
-//   if (filter.consultationType) {
-//     if (filter.consultationType === 'forwardToPartner') {
-//       filter.forwardToPartner = true;
-//     } else if (filter.consultationType === 'medication') {
-//       filter.medicins = { $exists: true, $ne: [] };
-//     }
-//     delete filter.consultationType; // prevent querying nonexistent field
-//   }
-
-//   // Only apply status filter if not provided
-//   if (!filter.status) {
-//     filter.status = {
-//       $in: [
-//         'draft',
-//         'pending',
-//         'processing',
-//         'prescribed',
-//         'accepted',
-//         'rejected',
-//         'delivered',
-//       ],
-//     };
-//   }
-
-//   // Pagination
-//   const limit = Number(query.limit) || 10;
-//   const page = Number(query.page) || 1;
-//   const skip = limit * (page - 1);
-
-//   console.log('Consultation query filter:', filter);
-
-//   const result = await Consultation.find(filter)
-//     .populate('category')
-//     .populate('subCategory')
-//     .populate('medicins._id')
-//     .populate('suggestedMedicine._id')
-//     .populate('doctorId')
-//     .populate('userId')
-//     .skip(skip)
-//     .limit(limit);
-
-//   if (!result.length) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Consultation not found!');
-//   }
-
-//   return result;
-// };
-
-
-
 const getConsultationByID = async (id: string): Promise<any> => {
   const result = await Consultation.findById(id)
     .populate('category')
@@ -794,22 +949,136 @@ const getConsultationByID = async (id: string): Promise<any> => {
     .populate('medicins._id')
     .populate('doctorId')
     .populate('userId')
-    .populate('suggestedMedicine._id')
-    .populate('medicins._id');
+    .populate('suggestedMedicine._id') // populate Medicine
+    .lean();
 
   if (!result) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Consultation not found!');
   }
-  const totalPrice =
-    result?.suggestedMedicine?.reduce(
-      //@ts-ignore
-      (acc, curr) => acc + (curr?._id?.sellingPrice || 0),
-      0
-    ) || 0;
-  //@ts-ignore
-  const finalResult = { ...result._doc, totalPrice };
-  return finalResult;
+
+  let totalPrice = 0;
+   let medicineImage = '';
+  const updatedSuggestedMedicines = (result.suggestedMedicine || []).map((item: any) => {
+    const medicine = item._id;
+    const count = item.count || 1;
+
+    let variationDetails = null;
+    let unitDetails = null;
+    let unitPrice = 0;
+
+    if (medicine?.variations?.length) {
+      variationDetails = medicine.variations.find(
+        (v: any) => v._id?.toString() === item.dosage?.toString()
+      );
+
+      if (variationDetails) {
+        unitDetails = variationDetails.units.find(
+          (u: any) => u._id?.toString() === item.total?.toString()
+        );
+
+        unitPrice = unitDetails?.sellingPrice || 0;
+      }
+         if (!medicineImage && medicine?.image) {
+        medicineImage = medicine.image;
+      }
+    }
+
+    const itemTotalPrice = unitPrice * count;
+    totalPrice += itemTotalPrice;
+
+    return {
+      _id: medicine._id,
+      name: medicine.name,
+      company: medicine.company,
+      dosage: variationDetails ? {
+        _id: variationDetails._id,
+        dosage: variationDetails.dosage,
+      } : null,
+      count,
+      total: unitDetails ? {
+        _id: unitDetails._id,
+        unitPerBox: unitDetails.unitPerBox,
+        sellingPrice: unitDetails.sellingPrice,
+      } : null,
+      totalPrice: itemTotalPrice,
+      image: medicineImage,
+    };
+  });
+
+  const { totalAmount, ...rest } = result;
+
+  return {
+    ...rest,
+    suggestedMedicine: updatedSuggestedMedicines,
+    totalPrice,
+  };
 };
+
+
+// const getConsultationByID = async (id: string): Promise<any> => {
+//   const result = await Consultation.findById(id)
+//     .populate('category')
+//     .populate('subCategory')
+//     .populate('medicins._id')
+//     .populate('doctorId')
+//     .populate('userId')
+//     .populate('suggestedMedicine._id')
+//       .populate({
+//       path: 'suggestedMedicine._id',
+//       populate: {
+//         path: 'variations',
+//         model: 'Variation', // adjust to actual model name
+//         populate: {
+//           path: 'units',
+//           model: 'Unit',
+//         }
+//       }
+//     })
+//     .lean();
+
+//   if (!result) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Consultation not found!');
+//   }
+
+//   let totalPrice = 0;
+
+//   const updatedSuggestedMedicines = (result.suggestedMedicine || []).map((item: any) => {
+//     const medicine = item?._id;
+//     const count = item?.count || 1;
+//     let unitPrice = 0;
+
+//     if (medicine?.variations?.length) {
+//       const variation = medicine.variations.find(
+//         (v: any) => v._id?.toString() === item.dosage?.toString()
+//       );
+
+//       if (variation) {
+//         const matchedUnit = variation.units.find(
+//           (u: any) => u._id?.toString() === item.total?.toString()
+//         );
+
+//         unitPrice = matchedUnit?.sellingPrice || 0;
+//       }
+//     }
+
+//     const itemTotal = unitPrice * count;
+//     totalPrice += itemTotal;
+
+//     return {
+//       ...item,
+//       _id: medicine,
+//       totalPrice: itemTotal,
+//     };
+//   });
+
+//   const { totalAmount, ...rest } = result;
+
+//   return {
+//     ...rest,
+//     suggestedMedicine: updatedSuggestedMedicines,
+//     totalPrice,
+//   };
+// };
 
 const refundByIDFromDB = async (id: string) => {
   const consultation = await Consultation.findById(id);
