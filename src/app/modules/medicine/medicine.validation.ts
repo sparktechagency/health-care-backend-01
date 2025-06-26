@@ -107,18 +107,18 @@ const unitSchema = z.object({
     required_error: 'unitPerBox is required',
     invalid_type_error: 'unitPerBox should be type string',
   }),
-  purchaseCost: z.number({
-    required_error: 'purchaseCost is required',
-    invalid_type_error: 'purchaseCost should be type number',
-  }),
-  tax: z.number({
-    required_error: 'tax is required',
-    invalid_type_error: 'tax should be type number',
-  }),
-  externalExpenses: z.number({
-    required_error: 'externalExpenses is required',
-    invalid_type_error: 'externalExpenses should be type number',
-  }),
+  // purchaseCost: z.number({
+  //   required_error: 'purchaseCost is required',
+  //   invalid_type_error: 'purchaseCost should be type number',
+  // }),
+  // tax: z.number({
+  //   required_error: 'tax is required',
+  //   invalid_type_error: 'tax should be type number',
+  // }),
+  // externalExpenses: z.number({
+  //   required_error: 'externalExpenses is required',
+  //   invalid_type_error: 'externalExpenses should be type number',
+  // }),
   sellingPrice: z.number({
     required_error: 'sellingPrice is required',
     invalid_type_error: 'sellingPrice should be type number',

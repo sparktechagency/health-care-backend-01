@@ -51,7 +51,7 @@ const createCheckoutSession = async (userId: string, id: string, totalAmount: nu
       },
     ],
     mode: 'payment',
-    success_url: `http://10.0.70.30:5002/api/v1/consultation/create/success?session_id={CHECKOUT_SESSION_ID}&id=${id}`,
+    success_url: `http://10.0.70.208:5002/api/v1/consultation/create/success?session_id={CHECKOUT_SESSION_ID}&id=${id}`,
     cancel_url: `https://www.dokterforyou.com/profile?isSuccess=false`,
     metadata: {
       userId,

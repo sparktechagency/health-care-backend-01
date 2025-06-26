@@ -433,7 +433,6 @@ const getMyConsultations = async (userId: string, query: any): Promise<any> => {
     .skip(limit * (page - 1))
     .limit(limit)
     .sort({ createdAt: -1 });
-
   return result;
 };
 

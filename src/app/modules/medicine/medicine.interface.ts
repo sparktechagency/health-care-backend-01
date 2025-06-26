@@ -22,9 +22,9 @@ import { Model, Types } from "mongoose";
 // export type MedicineModel = Model<IMedicine>;
 export interface IUnitVariation {
   unitPerBox: string;
-  purchaseCost: number;
-  tax: number;
-  externalExpenses: number;
+  // purchaseCost: number;
+  // tax: number;
+  // externalExpenses: number;
   sellingPrice: number;
 }
 

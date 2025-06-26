@@ -89,9 +89,9 @@ variations: [
     units: [
       {
         unitPerBox: { type: String, required: true },
-        purchaseCost: { type: Number, required: true },
-        tax: { type: Number, required: true },
-        externalExpenses: { type: Number, required: true },
+        // purchaseCost: { type: Number, required: true },
+        // tax: { type: Number, required: true },
+        // externalExpenses: { type: Number, required: true },
         sellingPrice: { type: Number, required: true },
       }
     ]
