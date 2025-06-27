@@ -807,6 +807,7 @@ const getAllConsultations = async (query: any): Promise<any> => {
       select: 'firstName lastName email profile contact country',
     })
     .sort({ createdAt: -1 })
+    .sort({ createdAt: -1 }) 
     .skip(skip)
     .limit(limit)
     .lean();
