@@ -72,5 +72,7 @@ export type IConsultation = {
     country: string;
     place: string;
   };
+  createdAt: Date;
+  updatedAt:Date;
 };
 export type ConsultationModel = Model<IConsultation>;

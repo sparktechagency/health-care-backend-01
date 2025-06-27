@@ -3,6 +3,7 @@ import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 import { StatusCodes } from 'http-status-codes';
 import { MedicineService } from './medicine.service';
+import mongoose from 'mongoose';
 
 // const createMedicine = catchAsync(async (req: Request, res: Response) => {
 //   if (req.files && 'image' in req.files && req.files.image[0]) {
@@ -17,7 +18,6 @@ import { MedicineService } from './medicine.service';
 //     data: result,
 //   });
 // });
-
 
 const createMedicine = catchAsync(async (req: Request, res: Response) => {
   if (req.files && 'image' in req.files && req.files.image[0]) {
@@ -104,23 +104,35 @@ const deleteMedicine = catchAsync(async (req: Request, res: Response) => {
 
 export const getUserMedicinesController = async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId; // or from req.user if using auth middleware
-
+    const userId = req.params.userId;
+    
     if (!userId) {
-      return res.status(400).json({ message: 'User ID is required.' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'User ID is required.' 
+      });
     }
 
-    const consultations = await MedicineService.getUserMedicinesService(userId);
+    // Validate if userId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid User ID format.' 
+      });
+    }
 
+    const result = await MedicineService.getUserMedicinesService(userId);
+    
     return res.status(200).json({
       success: true,
-      data: consultations,
+      data: result,
+      message: 'User medicines fetched successfully'
     });
   } catch (error) {
     console.error('Error in getUserMedicinesController:', error);
     return res.status(500).json({
       success: false,
-      message: 'Internal Server Error',
+      message: error instanceof Error ? error.message : 'Internal Server Error',
     });
   }
 };

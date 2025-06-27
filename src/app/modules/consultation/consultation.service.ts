@@ -542,34 +542,182 @@ If you have any questions in the meantime, please do not hesitate to ask us (sup
 
   return {};
 };
-const getMyConsultations = async (userId: string, query: any): Promise<any> => {
-  const searchQuery = {
+// const getMyConsultations = async (userId: string, query: any): Promise<any> => {
+//   const searchQuery = {
+//     userId: new Types.ObjectId(userId),
+//     status: { $in: ['accepted', 'processing'] },
+//   };
+//   if (query.consultationType) {
+//     if (query.consultationType === CONSULTATION_TYPE.FORWARDTO) {
+//       //@ts-ignore
+//       searchQuery.forwardToPartner = true;
+//     } else if (query.consultationType === CONSULTATION_TYPE.MEDICATION) {
+//       //@ts-ignore
+//       searchQuery.medicins = { $exists: true, $ne: [] };
+//     }
+//   }
+
+//   const limit = Number(query.limit) || 10;
+//   const page = Number(query.page) || 1;
+
+// const result = await Consultation.find(searchQuery)
+//   .populate('category')
+//   .populate('subCategory')
+//   .populate('selectedMedicines.medicineId') 
+//   .populate('selectedMedicines.unitId')      
+//   .populate('suggestedMedicine._id')
+//   .populate('doctorId')
+//   .skip(limit * (page - 1))
+//   .limit(limit)
+//   .sort({ createdAt: -1 });
+
+//   return result;
+// };
+export const getMyConsultations = async (userId: string, query: any): Promise<any> => {
+  const searchQuery: any = {
     userId: new Types.ObjectId(userId),
     status: { $in: ['accepted', 'processing'] },
   };
+
   if (query.consultationType) {
     if (query.consultationType === CONSULTATION_TYPE.FORWARDTO) {
-      //@ts-ignore
       searchQuery.forwardToPartner = true;
     } else if (query.consultationType === CONSULTATION_TYPE.MEDICATION) {
-      //@ts-ignore
       searchQuery.medicins = { $exists: true, $ne: [] };
     }
   }
 
   const limit = Number(query.limit) || 10;
   const page = Number(query.page) || 1;
+  const skip = limit * (page - 1);
 
-  const result = await Consultation.find(searchQuery)
+  const consultationsRaw = await Consultation.find(searchQuery)
     .populate('category')
     .populate('subCategory')
     .populate('medicins._id')
     .populate('suggestedMedicine._id')
+    .populate('selectedMedicines.medicineId')
+    .populate('selectedMedicines.variationId')
+    .populate('selectedMedicines.unitId')
     .populate('doctorId')
-    .skip(limit * (page - 1))
+    .sort({ createdAt: -1 })
+    .skip(skip)
     .limit(limit)
-    .sort({ createdAt: -1 });
-  return result;
+    .lean();
+
+  const consultations = consultationsRaw.map((consultation) => {
+    let totalPrice = 0;
+    let medicineImage = '';
+
+    const updatedSuggestedMedicine = (consultation.suggestedMedicine || []).map((item: any) => {
+      const medicine = item?._id;
+      const count = item?.count || 1;
+
+      let variationDetails = null;
+      let unitDetails = null;
+      let unitPrice = 0;
+
+      if (medicine?.variations?.length) {
+        variationDetails = medicine.variations.find(
+          (v: any) => v._id?.toString() === item.dosage?.toString()
+        );
+
+        if (variationDetails) {
+          unitDetails = variationDetails.units.find(
+            (u: any) => u._id?.toString() === item.total?.toString()
+          );
+
+          unitPrice = unitDetails?.sellingPrice || 0;
+        }
+      }
+
+      if (!medicineImage && medicine?.image) {
+        medicineImage = medicine.image;
+      }
+
+      const itemTotalPrice = unitPrice * count;
+      totalPrice += itemTotalPrice;
+
+      return {
+        _id: medicine._id,
+        name: medicine.name,
+        company: medicine.company,
+        dosage: variationDetails
+          ? { _id: variationDetails._id, dosage: variationDetails.dosage }
+          : null,
+        count,
+        total: unitDetails
+          ? {
+              _id: unitDetails._id,
+              unitPerBox: unitDetails.unitPerBox,
+              sellingPrice: unitDetails.sellingPrice,
+            }
+          : null,
+        totalPrice: itemTotalPrice,
+        image: medicineImage,
+      };
+    });
+
+    const updatedSelectedMedicines = (consultation.selectedMedicines || []).map((item: any) => {
+      const medicine = item.medicineId;
+      const variationId = item.variationId;
+      const unitId = item.unitId;
+      const count = item.count || 1;
+
+      let variationDetails = null;
+      let unitDetails = null;
+      let unitPrice = 0;
+
+      if (medicine?.variations?.length) {
+        variationDetails = medicine.variations.find(
+          (v: any) => v._id?.toString() === variationId?.toString()
+        );
+
+        if (variationDetails) {
+          unitDetails = variationDetails.units.find(
+            (u: any) => u._id?.toString() === unitId?.toString()
+          );
+
+          unitPrice = unitDetails?.sellingPrice || 0;
+        }
+      }
+
+      if (!medicineImage && medicine?.image) {
+        medicineImage = medicine.image;
+      }
+
+      const itemTotalPrice = unitPrice * count;
+      totalPrice += itemTotalPrice;
+
+      return {
+        _id: medicine._id,
+        name: medicine.name,
+        company: medicine.company,
+        dosage: variationDetails
+          ? { _id: variationDetails._id, dosage: variationDetails.dosage }
+          : null,
+        count,
+        total: unitDetails
+          ? {
+              _id: unitDetails._id,
+              unitPerBox: unitDetails.unitPerBox,
+              sellingPrice: unitDetails.sellingPrice,
+            }
+          : null,
+        totalPrice: itemTotalPrice,
+        image: medicine?.image,
+      };
+    });
+
+    return {
+      ...consultation,
+      suggestedMedicine: updatedSuggestedMedicine,
+      selectedMedicines: updatedSelectedMedicines,
+      totalPrice,
+    };
+  });
+
+  return consultations;
 };
 
 const updateConsultation = async (id: string, payload: any): Promise<any> => {
@@ -842,7 +990,6 @@ const getAllConsultations = async (query: any): Promise<any> => {
         }
       }
 
-      // Set image from the first suggested medicine if available
       if (!medicineImage && medicine?.image) {
         medicineImage = medicine.image;
       }
@@ -943,6 +1090,77 @@ const getConsultationsByDoctorId = async (doctorId: string, query: any = {}): Pr
   };
 };
 
+// const getConsultationByID = async (id: string): Promise<any> => {
+//   const result = await Consultation.findById(id)
+//     .populate('category')
+//     .populate('subCategory')
+//     .populate('medicins._id')
+//     .populate('doctorId')
+//     .populate('userId')
+//     .populate('suggestedMedicine._id') 
+//     .lean();
+
+//   if (!result) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Consultation not found!');
+//   }
+
+//   let totalPrice = 0;
+//    let medicineImage = '';
+//   const updatedSuggestedMedicines = (result.suggestedMedicine || []).map((item: any) => {
+//     const medicine = item._id;
+//     const count = item.count || 1;
+
+//     let variationDetails = null;
+//     let unitDetails = null;
+//     let unitPrice = 0;
+
+//     if (medicine?.variations?.length) {
+//       variationDetails = medicine.variations.find(
+//         (v: any) => v._id?.toString() === item.dosage?.toString()
+//       );
+
+//       if (variationDetails) {
+//         unitDetails = variationDetails.units.find(
+//           (u: any) => u._id?.toString() === item.total?.toString()
+//         );
+
+//         unitPrice = unitDetails?.sellingPrice || 0;
+//       }
+//          if (!medicineImage && medicine?.image) {
+//         medicineImage = medicine.image;
+//       }
+//     }
+
+//     const itemTotalPrice = unitPrice * count;
+//     totalPrice += itemTotalPrice;
+
+//     return {
+//       _id: medicine._id,
+//       name: medicine.name,
+//       company: medicine.company,
+//       dosage: variationDetails ? {
+//         _id: variationDetails._id,
+//         dosage: variationDetails.dosage,
+//       } : null,
+//       count,
+//       total: unitDetails ? {
+//         _id: unitDetails._id,
+//         unitPerBox: unitDetails.unitPerBox,
+//         sellingPrice: unitDetails.sellingPrice,
+//       } : null,
+//       totalPrice: itemTotalPrice,
+//       image: medicineImage,
+//     };
+//   });
+
+//   const { totalAmount, ...rest } = result;
+
+//   return {
+//     ...rest,
+//     suggestedMedicine: updatedSuggestedMedicines,
+//     totalPrice,
+//   };
+// };
 const getConsultationByID = async (id: string): Promise<any> => {
   const result = await Consultation.findById(id)
     .populate('category')
@@ -950,7 +1168,8 @@ const getConsultationByID = async (id: string): Promise<any> => {
     .populate('medicins._id')
     .populate('doctorId')
     .populate('userId')
-    .populate('suggestedMedicine._id') // populate Medicine
+    .populate('suggestedMedicine._id')
+    .populate('selectedMedicines.medicineId')
     .lean();
 
   if (!result) {
@@ -958,7 +1177,8 @@ const getConsultationByID = async (id: string): Promise<any> => {
   }
 
   let totalPrice = 0;
-   let medicineImage = '';
+  let medicineImage = '';
+
   const updatedSuggestedMedicines = (result.suggestedMedicine || []).map((item: any) => {
     const medicine = item._id;
     const count = item.count || 1;
@@ -976,10 +1196,10 @@ const getConsultationByID = async (id: string): Promise<any> => {
         unitDetails = variationDetails.units.find(
           (u: any) => u._id?.toString() === item.total?.toString()
         );
-
         unitPrice = unitDetails?.sellingPrice || 0;
       }
-         if (!medicineImage && medicine?.image) {
+
+      if (!medicineImage && medicine?.image) {
         medicineImage = medicine.image;
       }
     }
@@ -1006,80 +1226,76 @@ const getConsultationByID = async (id: string): Promise<any> => {
     };
   });
 
+  // 🎯 Filter `selectedMedicines` to keep only selected variation + unit
+  const updatedSelectedMedicines = (result.selectedMedicines || []).map((item: any) => {
+    const med = item.medicineId;
+    const selectedVariationId = item.variationId?.toString();
+    const selectedUnitId = item.unitId?.toString();
+
+    // find selected variation
+    const selectedVariation = med?.variations?.find(
+      (v: any) => v._id?.toString() === selectedVariationId
+    );
+
+    // find selected unit inside that variation
+    const selectedUnit = selectedVariation?.units?.find(
+      (u: any) => u._id?.toString() === selectedUnitId
+    );
+
+    // build a new variations array with only the selected variation + selected unit
+    const filteredVariations = selectedVariation
+      ? [
+          {
+            _id: selectedVariation._id,
+            dosage: selectedVariation.dosage,
+            units: selectedUnit
+              ? [
+                  {
+                    _id: selectedUnit._id,
+                    unitPerBox: selectedUnit.unitPerBox,
+                    sellingPrice: selectedUnit.sellingPrice,
+                  },
+                ]
+              : [],
+          },
+        ]
+      : [];
+
+    return {
+      _id: item._id,
+
+      // variationId: item.variationId,
+      // unitId: item.unitId,
+      medicineId: {
+        _id: med._id,
+        name: med.name,
+        company: med.company,
+        country: med.country,
+        image: med.image,
+        form: med.form,
+        description: med.description,
+        subCategory: med.subCategory,
+        addedBy: med.addedBy,
+        createdAt: med.createdAt,
+        updatedAt: med.updatedAt,
+        __v: med.__v,
+        variations: filteredVariations,
+      count: item.count,
+      totalPrice: item.total,
+      },
+    };
+  });
+
   const { totalAmount, ...rest } = result;
 
   return {
     ...rest,
     suggestedMedicine: updatedSuggestedMedicines,
+    selectedMedicines: updatedSelectedMedicines,
     totalPrice,
   };
 };
 
-
-// const getConsultationByID = async (id: string): Promise<any> => {
-//   const result = await Consultation.findById(id)
-//     .populate('category')
-//     .populate('subCategory')
-//     .populate('medicins._id')
-//     .populate('doctorId')
-//     .populate('userId')
-//     .populate('suggestedMedicine._id')
-//       .populate({
-//       path: 'suggestedMedicine._id',
-//       populate: {
-//         path: 'variations',
-//         model: 'Variation', // adjust to actual model name
-//         populate: {
-//           path: 'units',
-//           model: 'Unit',
-//         }
-//       }
-//     })
-//     .lean();
-
-//   if (!result) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Consultation not found!');
-//   }
-
-//   let totalPrice = 0;
-
-//   const updatedSuggestedMedicines = (result.suggestedMedicine || []).map((item: any) => {
-//     const medicine = item?._id;
-//     const count = item?.count || 1;
-//     let unitPrice = 0;
-
-//     if (medicine?.variations?.length) {
-//       const variation = medicine.variations.find(
-//         (v: any) => v._id?.toString() === item.dosage?.toString()
-//       );
-
-//       if (variation) {
-//         const matchedUnit = variation.units.find(
-//           (u: any) => u._id?.toString() === item.total?.toString()
-//         );
-
-//         unitPrice = matchedUnit?.sellingPrice || 0;
-//       }
-//     }
-
-//     const itemTotal = unitPrice * count;
-//     totalPrice += itemTotal;
-
-//     return {
-//       ...item,
-//       _id: medicine,
-//       totalPrice: itemTotal,
-//     };
-//   });
-
-//   const { totalAmount, ...rest } = result;
-
-//   return {
-//     ...rest,
-//     suggestedMedicine: updatedSuggestedMedicines,
-//     totalPrice,
-//   };
-// };
 
 const refundByIDFromDB = async (id: string) => {
   const consultation = await Consultation.findById(id);
