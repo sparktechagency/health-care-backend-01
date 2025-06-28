@@ -1287,14 +1287,202 @@ const withdrawDoctorMoney = async (id: string) => {
   return {};
 };
 
+// const buyMedicine = async (userId: string, id: string) => {
+//   const user = await User.findById(userId);
+//   if (!user) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found');
+//   }
+//   const isExistConsultation = await getConsultationByID(id);
+//   let allMedicinsPrice = 0;
+//   allMedicinsPrice = isExistConsultation?.suggestedMedicine?.reduce(
+//     (
+//       total: number,
+//       medication: {
+//         count: number;
+//         _id: { sellingPrice: string; unitPerBox: string[] };
+//       }
+//     ) => {
+//       const pricePerUnit =
+//         Number(medication?._id?.sellingPrice) *
+//         Number(medication?._id?.unitPerBox[0]);
+//       return total + pricePerUnit * Number(medication?.count);
+//     },
+//     0
+//   );
+//   await Consultation.findByIdAndUpdate(
+//     id,
+//     {
+//       totalAmount: allMedicinsPrice,
+//     },
+//     { runValidators: true }
+//   );
+//   const session = await stripe.checkout.sessions.create({
+//     payment_method_types: ['card', 'ideal'],
+//     line_items: [
+//       {
+//         price_data: {
+//           currency: 'eur',
+//           product_data: {
+//             name: 'Consultation service Medicins.',
+//             description: 'Prescription medicins',
+//           },
+//           unit_amount: allMedicinsPrice * 100 + 2000,
+//         },
+//         quantity: 1,
+//       },
+//     ],
+//     mode: 'payment',
+//     success_url: `https://api.dokterforyou.com/api/v1/consultation/buySuccess?session_id={CHECKOUT_SESSION_ID}&id=${id}`,
+//     cancel_url: `https://www.dokterforyou.com/profile`,
+//     metadata: {
+//       userId,
+//     },
+//   });
+//   return session.url;
+// };
+
+// const buyMedicine = async (userId: string, id: string) => {
+//   // Validate user
+//   const user = await User.findById(userId);
+//   if (!user) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found');
+//   }
+
+//   // Validate consultation ID
+//   const { isValidObjectId } = require('mongoose');
+//   if (!isValidObjectId(id)) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid consultation ID');
+//   }
+
+//   // Check consultation existence with populated suggestedMedicine
+//   const isExistConsultation = await Consultation.findById(id).populate('suggestedMedicine._id');
+//   if (!isExistConsultation) {
+//     throw new ApiError(StatusCodes.NOT_FOUND, 'Consultation not found');
+//   }
+
+//   // Check if suggested medicines exist
+//   if (!isExistConsultation.suggestedMedicine?.length) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'No medicines found for this consultation');
+//   }
+
+//   // Calculate total price
+//   const allMedicinsPrice = isExistConsultation.suggestedMedicine.reduce(
+//     (
+//       total: number,
+//       medication: any // <-- add 'any' or a more specific type if available
+//     ) => {
+//       // Type assertion to ensure medication._id has sellingPrice and unitPerBox
+//       const med = medication as {
+//         count: number;
+//         _id: { sellingPrice: number; unitPerBox: string[] | string };
+//         total?: string;
+//       };
+
+//       if (
+//         !med?._id ||
+//         !med._id.sellingPrice ||
+//         isNaN(Number(med.count)) ||
+//         med.count < 1
+//       ) {
+//         console.warn('Skipping invalid medication:', med);
+//         return total;
+//       }
+
+//       // Parse unitPerBox (handle both array and string cases)
+//       let units = 1;
+//       const unitPerBox = med._id.unitPerBox;
+//       if (unitPerBox) {
+//         // If unitPerBox is an array, use the first element
+//         const unitPerBoxStr = Array.isArray(unitPerBox) ? unitPerBox[0] : unitPerBox;
+//         const match = unitPerBoxStr.match(/(\d+)/); // Extract number, e.g., '10 tablets' -> 10
+//         units = match ? Number(match[0]) : 1;
+//       }
+
+//       const pricePerUnit = Number(med._id.sellingPrice) * units;
+//       const medicationTotal = pricePerUnit * Number(med.count);
+//       console.log(
+//         `Medication: ${JSON.stringify(med._id)}, Price per unit: ${pricePerUnit}, Count: ${med.count}, Total: ${medicationTotal}`
+//       );
+
+//       return total + medicationTotal;
+//     },
+//     0
+//   );
+
+//   if (isNaN(allMedicinsPrice) || allMedicinsPrice <= 0) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid total medicine price calculated');
+//   }
+
+//   // Update consultation with total amount
+//   await Consultation.findByIdAndUpdate(
+//     id,
+//     { totalAmount: allMedicinsPrice },
+//     { runValidators: true }
+//   ).catch((error) => {
+//     throw new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, 'Failed to update consultation');
+//   });
+
+//   // Create Stripe checkout session
+//   const unitAmount = Math.round(allMedicinsPrice * 100); // Convert to cents
+//   if (unitAmount <= 0) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Total price must be greater than zero');
+//   }
+
+//   const session = await stripe.checkout.sessions.create({
+//     payment_method_types: ['card', 'ideal'],
+//     line_items: [
+//       {
+//         price_data: {
+//           currency: 'eur',
+//           product_data: {
+//             name: 'Consultation Service Medicines',
+//             description: `Prescription medicines for consultation ID: ${id}`,
+//           },
+//           unit_amount: unitAmount, // Remove hardcoded +2000
+//         },
+//         quantity: 1,
+//       },
+//     ],
+//     mode: 'payment',
+//     success_url: `https://api.dokterforyou.com/api/v1/consultation/buySuccess?session_id={CHECKOUT_SESSION_ID}&id=${id}`,
+//     cancel_url: `https://www.dokterforyou.com/profile`,
+//     metadata: { userId },
+//   });
+
+//   console.log('Calculated total price (EUR):', allMedicinsPrice);
+//   console.log('Stripe session unit_amount (cents):', unitAmount);
+//   console.log('Stripe session created:', session);
+
+//   return session.url;
+// };
+
+
 const buyMedicine = async (userId: string, id: string) => {
+  // Validate user
   const user = await User.findById(userId);
   if (!user) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found');
   }
+
+  // Validate consultation ID
+  const { isValidObjectId } = require('mongoose');
+  if (!isValidObjectId(id)) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid consultation ID');
+  }
+
+  // Check consultation existence
   const isExistConsultation = await getConsultationByID(id);
-  let allMedicinsPrice = 0;
-  allMedicinsPrice = isExistConsultation?.suggestedMedicine?.reduce(
+  if (!isExistConsultation) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Consultation not found');
+  }
+
+  // Check if suggested medicines exist
+  if (!isExistConsultation.suggestedMedicine?.length) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'No medicines found for this consultation');
+  }
+
+  // Calculate total price
+  const allMedicinsPrice = isExistConsultation.suggestedMedicine.reduce(
     (
       total: number,
       medication: {
@@ -1302,20 +1490,25 @@ const buyMedicine = async (userId: string, id: string) => {
         _id: { sellingPrice: string; unitPerBox: string[] };
       }
     ) => {
+      if (!medication?._id || !medication._id.sellingPrice || !Array.isArray(medication._id.unitPerBox)) {
+        console.warn('Skipping invalid medication:', medication);
+        return total; // Skip invalid entries
+      }
       const pricePerUnit =
-        Number(medication?._id?.sellingPrice) *
-        Number(medication?._id?.unitPerBox[0]);
-      return total + pricePerUnit * Number(medication?.count);
+        Number(medication._id.sellingPrice) * Number(medication._id.unitPerBox[0] || 1);
+      return total + pricePerUnit * Number(medication.count || 0);
     },
     0
   );
+
+  // Update consultation with total amount
   await Consultation.findByIdAndUpdate(
     id,
-    {
-      totalAmount: allMedicinsPrice,
-    },
+    { totalAmount: allMedicinsPrice },
     { runValidators: true }
   );
+
+  // Create Stripe checkout session
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card', 'ideal'],
     line_items: [
@@ -1323,8 +1516,8 @@ const buyMedicine = async (userId: string, id: string) => {
         price_data: {
           currency: 'eur',
           product_data: {
-            name: 'Consultation service Medicins.',
-            description: 'Prescription medicins',
+            name: 'Consultation service Medicines',
+            description: 'Prescription medicines',
           },
           unit_amount: allMedicinsPrice * 100 + 2000,
         },
@@ -1334,10 +1527,9 @@ const buyMedicine = async (userId: string, id: string) => {
     mode: 'payment',
     success_url: `https://api.dokterforyou.com/api/v1/consultation/buySuccess?session_id={CHECKOUT_SESSION_ID}&id=${id}`,
     cancel_url: `https://www.dokterforyou.com/profile`,
-    metadata: {
-      userId,
-    },
+    metadata: { userId },
   });
+
   return session.url;
 };
 
@@ -1349,6 +1541,7 @@ const buyMedicineSuccess = async (
   const todaysDate = new Date();
   const session = await stripe.checkout.sessions.retrieve(session_id);
   const isExistConsultation = await getConsultationByID(id);
+
   if (session?.payment_status === 'paid') {
     await Consultation.findByIdAndUpdate(isExistConsultation._id, {
       $set: {

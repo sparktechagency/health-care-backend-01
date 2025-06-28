@@ -24,7 +24,7 @@ export const AffiliatedDoctorController = {
           'image' in req.files &&
           Array.isArray((req.files as { [fieldname: string]: Express.Multer.File[] })['image'])
         ) {
-          image = `uploads/images/${(req.files as { [fieldname: string]: Express.Multer.File[] })['image'][0].filename}`;
+          image = `/images/${(req.files as { [fieldname: string]: Express.Multer.File[] })['image'][0].filename}`;
         }
 
         if (!name || !specialization || !image) {
@@ -74,7 +74,7 @@ export const AffiliatedDoctorController = {
           'image' in req.files &&
           Array.isArray((req.files as { [fieldname: string]: Express.Multer.File[] })['image'])
         ) {
-          image = `uploads/images/${(req.files as { [fieldname: string]: Express.Multer.File[] })['image'][0].filename}`;
+          image = `/images/${(req.files as { [fieldname: string]: Express.Multer.File[] })['image'][0].filename}`;
         }
 
       const updatedDoctor = await AffiliatedDoctorService.updateDoctor(id, { name, specialization, image: image ?? "" });
