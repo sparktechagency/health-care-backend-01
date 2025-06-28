@@ -9,6 +9,10 @@ const createNotificationZodSchema = z.object({
       required_error: 'description is required',
       invalid_type_error: 'description should be type string',
     }),
+    meetingLink: z.string({
+      required_error: 'meetingLink is required',
+      invalid_type_error: 'meetingLink should be type  string',
+    }),
     reciever: z.string({
       required_error: 'reciever is required',
       invalid_type_error: 'reciever should be type objectID or string',

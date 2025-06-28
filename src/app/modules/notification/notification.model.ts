@@ -6,7 +6,8 @@ const notificationSchema = new Schema<INotification, NotificationModel>(
   {
     title: { type: String, required: false },
     description: { type: String, required: true },
-    reciever: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    meetingLink:{ type: String, required: false},
+    reciever: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     status: {
       type: String,
       enum: Object.values(NOTIFICATION_STATUS),

@@ -401,6 +401,7 @@ If you have any questions in the meantime, please do not hesitate to ask us (sup
 
 //   return result;
 // };
+
 export const getMyConsultations = async (userId: string, query: any): Promise<any> => {
   const searchQuery: any = {
     userId: new Types.ObjectId(userId),
@@ -1213,21 +1214,44 @@ const scheduleConsultationToDB = async (data: IConsultation, id: string) => {
   };
 };
 
+
 const addLinkToConsultation = async (data: IConsultation, id: string) => {
-  const consultation = await getConsultationByID(id);
   await updateConsultation(id, data);
+
+  const consultation = await getConsultationByID(id); // Ensure populated fields: userId (email, firstName), doctorId, subCategory
+
   //@ts-ignore
   const io = global.io;
+
+  // In-app notification
   await NotificationService.createNotification(
     {
-      title: `Doctor ${consultation.doctorId.fileName} sent a meeting link for consultation`,
-      description: `Doctor ${consultation.doctorId.firstName} sent a meeting link for consultation on ${consultation.subCategory.name}`,
+      title: `Doctor ${consultation.doctorId?.fileName || 'Doctor'} sent a meeting link for consultation`,
+      description: `Doctor ${consultation.doctorId?.firstName || 'Doctor'} sent a meeting link for consultation on ${consultation.subCategory?.name || 'a category'}`,
+      meetingLink: consultation.link,
       reciever: consultation.userId._id,
     },
     io
   );
+
+  // Email notification
+  const userEmail = consultation.userId?.email;
+  if (userEmail && consultation.link) {
+    await emailHelper.sendEmail({
+      to: userEmail,
+      subject: 'Your Consultation Meeting Link',
+      html: `
+        <p>Dear ${consultation.userId?.firstName || 'User'},</p>
+        <p>Your consultation has been scheduled with Dr. ${consultation.doctorId?.firstName || 'our specialist'}.</p>
+        <p><strong>Meeting Link:</strong> <a href="${consultation.link}" target="_blank">${consultation.link}</a></p>
+        <p><strong>Category:</strong> ${consultation.subCategory?.name || 'N/A'}</p>
+        <p>Please be ready at the scheduled time. Thank you for choosing Dokter For You.</p>
+      `,
+    });
+  }
+
   return {
-    message: 'consultation scheduled successfully',
+    message: 'Consultation scheduled successfully',
   };
 };
 
