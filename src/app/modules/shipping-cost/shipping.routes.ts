@@ -6,11 +6,6 @@ import { USER_ROLES } from '../../../enums/user';
 
 const router = express.Router();
 
-const rolesOfAccess = [
-  USER_ROLES.ADMIN,
-  USER_ROLES.SUPERADMIN,
-  USER_ROLES.USER,
-];
 
 router.post(
   '/',

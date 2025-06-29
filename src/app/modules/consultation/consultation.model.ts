@@ -255,6 +255,7 @@ suggestedMedicine: {
       required: false,
     },
   },
+  
   { timestamps: true }
 );
 
