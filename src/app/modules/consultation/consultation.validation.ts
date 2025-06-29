@@ -181,6 +181,7 @@ suggestedMedicine: z
       })
       .optional(),
   }),
+  
 });
 
 export const ConsultationValidation = {
