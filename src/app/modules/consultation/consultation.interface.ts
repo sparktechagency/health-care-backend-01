@@ -53,7 +53,7 @@ export type IConsultation = {
   // suggestedMedicine?: [IMedicineItem];
     suggestedMedicine?: Array<{
     _id: Schema.Types.ObjectId;
-    dosage:Schema.Types.ObjectId;
+    dosage: Schema.Types.ObjectId;
     count: number;
     total: Schema.Types.ObjectId;
   }>;
@@ -72,6 +72,7 @@ export type IConsultation = {
     country: string;
     place: string;
   };
+  shippingCost?: number;
   createdAt: Date;
   updatedAt:Date;
 };

@@ -23,6 +23,8 @@ import { emailTemplate } from '../../../shared/emailTemplate';
 import { Medicine } from '../medicine/medicine.model';
 import { Discount } from '../discount/discount.model';
 import {assignDoctorByWorkload} from '../../../helpers/helper.service'
+import { ShippingService } from '../shipping-cost/shipping.services';
+import { ShippingCost } from '../shipping-cost/shippingCost.model';
 
 // Helper function to find a doctor for consultation based on category and country
 const findDoctorForConsultation = async (country?: string): Promise<string | null> => {
@@ -79,6 +81,185 @@ const findDoctorForConsultation = async (country?: string): Promise<string | nul
 };
 
 
+
+// const CONSULTATION_FEE_EURO = 25;
+
+// const createConsultation = async (
+//   payload: IConsultation & { discountCode?: string },
+//   userId: string
+// ): Promise<any> => {
+//   payload.userId = new Types.ObjectId(userId);
+
+//   let medicineAmount = 0;
+//   let originalAmount = 0;
+//   let discountAmount = 0;
+//   let shippingCost = 0;
+//   let finalAmount = 0;
+//   let appliedDiscount = null;
+
+//   // Fetch user to get their country
+//   const user = await User.findById(userId);
+//   if (!user || !user.country) {
+//     throw new ApiError(
+//       StatusCodes.BAD_REQUEST,
+//       'User or user country not found'
+//     );
+//   }
+//   const userCountry = user.country;
+
+//   // Auto-assign doctor based on load balancing (no category restriction)
+//   if (!payload.doctorId) {
+//     const assignedDoctorId = await findDoctorForConsultation(userCountry);
+//     if (assignedDoctorId) {
+//       payload.doctorId = new Types.ObjectId(assignedDoctorId);
+//     } else {
+//       throw new ApiError(
+//         StatusCodes.BAD_REQUEST,
+//         'No available doctors found at the moment. Please try again later.'
+//       );
+//     }
+//   }
+
+//   // Calculate medicine total
+//   if (payload.selectedMedicines && payload.selectedMedicines.length > 0) {
+//     for (const selectedMedicine of payload.selectedMedicines) {
+//       try {
+//         const medicine = await Medicine.findById(selectedMedicine.medicineId);
+//         if (!medicine) {
+//           throw new ApiError(
+//             StatusCodes.BAD_REQUEST,
+//             `Medicine with ID ${selectedMedicine.medicineId} not found`
+//           );
+//         }
+
+//         const variation = medicine.variations.find(
+//           (v: any) => v._id.toString() === selectedMedicine.variationId.toString()
+//         );
+//         if (!variation) {
+//           throw new ApiError(
+//             StatusCodes.BAD_REQUEST,
+//             `Variation with ID ${selectedMedicine.variationId} not found`
+//           );
+//         }
+
+//         const unit = variation.units.find(
+//           (u: any) => u._id.toString() === selectedMedicine.unitId.toString()
+//         );
+//         if (!unit) {
+//           throw new ApiError(
+//             StatusCodes.BAD_REQUEST,
+//             `Unit with ID ${selectedMedicine.unitId} not found`
+//           );
+//         }
+
+//         const medicineTotal = unit.sellingPrice * selectedMedicine.count;
+//         selectedMedicine.total = medicineTotal;
+//         medicineAmount += medicineTotal;
+//       } catch (error) {
+//         throw new ApiError(
+//           StatusCodes.BAD_REQUEST,
+//           `Error processing medicine selection: ${error instanceof Error ? error.message : error}`
+//         );
+//       }
+//     }
+//   }
+
+//   // Always add fixed consultation fee
+//   originalAmount = medicineAmount + CONSULTATION_FEE_EURO;
+
+//   // Calculate shipping cost based on user country
+//   const shippingResult = await ShippingService.calculateShippingCost({ userId });
+//   shippingCost = shippingResult.shippingCost;
+
+//   // Apply discount logic
+//   if (payload.discountCode) {
+//     try {
+//       const discount = await Discount.findOne({
+//         discountCode: payload.discountCode.trim(),
+//         startDate: { $lte: new Date() },
+//         endDate: { $gte: new Date() }
+//       });
+
+//       if (!discount) {
+//         throw new ApiError(
+//           StatusCodes.BAD_REQUEST,
+//           'Invalid or expired discount code'
+//         );
+//       }
+
+//       if (discount.country?.length > 0 && !discount.country.includes(userCountry)) {
+//         throw new ApiError(
+//           StatusCodes.BAD_REQUEST,
+//           `This coupon code is not valid in your country (${userCountry})`
+//         );
+//       }
+
+//       if (!discount.parcentage || discount.parcentage <= 0 || discount.parcentage > 100) {
+//         throw new ApiError(
+//           StatusCodes.BAD_REQUEST,
+//           'Invalid discount percentage'
+//         );
+//       }
+
+//       discountAmount = (originalAmount * discount.parcentage) / 100;
+//       finalAmount = originalAmount - discountAmount + shippingCost;
+
+//       appliedDiscount = {
+//         discountId: discount._id.toString(),
+//         discountCode: discount.discountCode,
+//         discountPercentage: discount.parcentage,
+//         discountAmount,
+//       };
+
+//       if (finalAmount < 0) finalAmount = shippingCost; // Ensure finalAmount includes shipping cost
+//     } catch (error) {
+//       if (error instanceof ApiError) throw error;
+//       throw new ApiError(
+//         StatusCodes.BAD_REQUEST,
+//         `Error applying discount: ${error instanceof Error ? error.message : error}`
+//       );
+//     }
+//   } else {
+//     finalAmount = originalAmount + shippingCost;
+//   }
+
+//   // Store values in payload
+//   payload.originalAmount = originalAmount;
+//   payload.discountAmount = discountAmount;
+//   payload.shippingCost = shippingCost;
+//   payload.totalAmount = finalAmount;
+
+//   if (appliedDiscount) {
+//     payload.appliedDiscount = appliedDiscount;
+//   }
+
+//   const result = await Consultation.create(payload);
+
+//   if (!result) {
+//     throw new ApiError(
+//       StatusCodes.BAD_REQUEST,
+//       'Failed to create consultation!'
+//     );
+//   }
+
+//   // Stripe Checkout Session
+//   const createCheckOutSession = await stripeHelper.createCheckoutSession(
+//     userId,
+//     result._id.toString(),
+//     finalAmount
+//   );
+
+//   return {
+//     consultationId: result._id,
+//     checkoutUrl: createCheckOutSession.url,
+//     originalAmount,
+//     discountAmount,
+//     shippingCost,
+//     totalAmount: finalAmount,
+//     appliedDiscount,
+//     assignedDoctorId: payload.doctorId,
+//   };
+// };
 const CONSULTATION_FEE_EURO = 25;
 
 const createConsultation = async (
@@ -90,6 +271,7 @@ const createConsultation = async (
   let medicineAmount = 0;
   let originalAmount = 0;
   let discountAmount = 0;
+  let shippingCost = 0;
   let finalAmount = 0;
   let appliedDiscount = null;
 
@@ -129,7 +311,8 @@ const createConsultation = async (
         }
 
         const variation = medicine.variations.find(
-          (v: any) => v._id.toString() === selectedMedicine.variationId.toString()
+          (v: any) =>
+            v._id.toString() === selectedMedicine.variationId.toString()
         );
         if (!variation) {
           throw new ApiError(
@@ -139,7 +322,8 @@ const createConsultation = async (
         }
 
         const unit = variation.units.find(
-          (u: any) => u._id.toString() === selectedMedicine.unitId.toString()
+          (u: any) =>
+            u._id.toString() === selectedMedicine.unitId.toString()
         );
         if (!unit) {
           throw new ApiError(
@@ -151,11 +335,12 @@ const createConsultation = async (
         const medicineTotal = unit.sellingPrice * selectedMedicine.count;
         selectedMedicine.total = medicineTotal;
         medicineAmount += medicineTotal;
-
       } catch (error) {
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
-          `Error processing medicine selection: ${error instanceof Error ? error.message : error}`
+          `Error processing medicine selection: ${
+            error instanceof Error ? error.message : error
+          }`
         );
       }
     }
@@ -164,13 +349,33 @@ const createConsultation = async (
   // Always add fixed consultation fee
   originalAmount = medicineAmount + CONSULTATION_FEE_EURO;
 
+  // Calculate shipping cost based on user country
+  try {
+    const shippingCostData = await ShippingCost.findOne({
+      country: user.country,
+    });
+
+    if (shippingCostData) {
+      shippingCost = shippingCostData.cost;
+    } else {
+      shippingCost = 0; // Default if no shipping cost defined
+    }
+  } catch (error) {
+    throw new ApiError(
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      `Error calculating shipping cost: ${
+        error instanceof Error ? error.message : error
+      }`
+    );
+  }
+
   // Apply discount logic
   if (payload.discountCode) {
     try {
       const discount = await Discount.findOne({
         discountCode: payload.discountCode.trim(),
         startDate: { $lte: new Date() },
-        endDate: { $gte: new Date() }
+        endDate: { $gte: new Date() },
       });
 
       if (!discount) {
@@ -180,14 +385,21 @@ const createConsultation = async (
         );
       }
 
-      if (discount.country?.length > 0 && !discount.country.includes(userCountry)) {
+      if (
+        discount.country?.length > 0 &&
+        !discount.country.includes(userCountry)
+      ) {
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
           `This coupon code is not valid in your country (${userCountry})`
         );
       }
 
-      if (!discount.parcentage || discount.parcentage <= 0 || discount.parcentage > 100) {
+      if (
+        !discount.parcentage ||
+        discount.parcentage <= 0 ||
+        discount.parcentage > 100
+      ) {
         throw new ApiError(
           StatusCodes.BAD_REQUEST,
           'Invalid discount percentage'
@@ -195,7 +407,7 @@ const createConsultation = async (
       }
 
       discountAmount = (originalAmount * discount.parcentage) / 100;
-      finalAmount = originalAmount - discountAmount;
+      finalAmount = originalAmount - discountAmount + shippingCost;
 
       appliedDiscount = {
         discountId: discount._id.toString(),
@@ -204,22 +416,24 @@ const createConsultation = async (
         discountAmount,
       };
 
-      if (finalAmount < 0) finalAmount = 0;
-
+      if (finalAmount < 0) finalAmount = shippingCost;
     } catch (error) {
       if (error instanceof ApiError) throw error;
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-        `Error applying discount: ${error instanceof Error ? error.message : error}`
+        `Error applying discount: ${
+          error instanceof Error ? error.message : error
+        }`
       );
     }
   } else {
-    finalAmount = originalAmount;
+    finalAmount = originalAmount + shippingCost;
   }
 
   // Store values in payload
   payload.originalAmount = originalAmount;
   payload.discountAmount = discountAmount;
+  payload.shippingCost = shippingCost;
   payload.totalAmount = finalAmount;
 
   if (appliedDiscount) {
@@ -247,12 +461,12 @@ const createConsultation = async (
     checkoutUrl: createCheckOutSession.url,
     originalAmount,
     discountAmount,
+    shippingCost,
     totalAmount: finalAmount,
     appliedDiscount,
     assignedDoctorId: payload.doctorId,
   };
 };
-
 
 const getMedicinePricing = async (
   medicineId: string,
@@ -990,6 +1204,7 @@ const getConsultationsByDoctorId = async (doctorId: string, query: any = {}): Pr
 //     totalPrice,
 //   };
 // };
+
 const getConsultationByID = async (id: string): Promise<any> => {
   const result = await Consultation.findById(id)
     .populate('category')
@@ -1006,7 +1221,6 @@ const getConsultationByID = async (id: string): Promise<any> => {
   }
 
   let totalPrice = 0;
-  let medicineImage = '';
 
   const updatedSuggestedMedicines = (result.suggestedMedicine || []).map((item: any) => {
     const medicine = item._id;
@@ -1026,10 +1240,6 @@ const getConsultationByID = async (id: string): Promise<any> => {
           (u: any) => u._id?.toString() === item.total?.toString()
         );
         unitPrice = unitDetails?.sellingPrice || 0;
-      }
-
-      if (!medicineImage && medicine?.image) {
-        medicineImage = medicine.image;
       }
     }
 
@@ -1051,27 +1261,23 @@ const getConsultationByID = async (id: string): Promise<any> => {
         sellingPrice: unitDetails.sellingPrice,
       } : null,
       totalPrice: itemTotalPrice,
-      image: medicineImage,
+      image: medicine?.image || '', // Assign individual medicine image
     };
   });
 
-  // 🎯 Filter `selectedMedicines` to keep only selected variation + unit
   const updatedSelectedMedicines = (result.selectedMedicines || []).map((item: any) => {
     const med = item.medicineId;
     const selectedVariationId = item.variationId?.toString();
     const selectedUnitId = item.unitId?.toString();
 
-    // find selected variation
     const selectedVariation = med?.variations?.find(
       (v: any) => v._id?.toString() === selectedVariationId
     );
 
-    // find selected unit inside that variation
     const selectedUnit = selectedVariation?.units?.find(
       (u: any) => u._id?.toString() === selectedUnitId
     );
 
-    // build a new variations array with only the selected variation + selected unit
     const filteredVariations = selectedVariation
       ? [
           {
@@ -1092,15 +1298,12 @@ const getConsultationByID = async (id: string): Promise<any> => {
 
     return {
       _id: item._id,
-
-      // variationId: item.variationId,
-      // unitId: item.unitId,
       medicineId: {
         _id: med._id,
         name: med.name,
         company: med.company,
         country: med.country,
-        image: med.image,
+        image: med.image, // Assign individual medicine image
         form: med.form,
         description: med.description,
         subCategory: med.subCategory,
@@ -1109,9 +1312,9 @@ const getConsultationByID = async (id: string): Promise<any> => {
         updatedAt: med.updatedAt,
         __v: med.__v,
         variations: filteredVariations,
+      },
       count: item.count,
       totalPrice: item.total,
-      },
     };
   });
 
@@ -1124,6 +1327,142 @@ const getConsultationByID = async (id: string): Promise<any> => {
     totalPrice,
   };
 };
+
+
+// const getConsultationByID = async (id: string): Promise<any> => {
+//   const result = await Consultation.findById(id)
+//     .populate('category')
+//     .populate('subCategory')
+//     .populate('medicins._id')
+//     .populate('doctorId')
+//     .populate('userId')
+//     .populate('suggestedMedicine._id')
+//     .populate('selectedMedicines.medicineId')
+//     .lean();
+
+//   if (!result) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Consultation not found!');
+//   }
+
+//   let totalPrice = 0;
+//   let medicineImage = '';
+
+//   const updatedSuggestedMedicines = (result.suggestedMedicine || []).map((item: any) => {
+//     const medicine = item._id;
+//     const count = item.count || 1;
+
+//     let variationDetails = null;
+//     let unitDetails = null;
+//     let unitPrice = 0;
+
+//     if (medicine?.variations?.length) {
+//       variationDetails = medicine.variations.find(
+//         (v: any) => v._id?.toString() === item.dosage?.toString()
+//       );
+
+//       if (variationDetails) {
+//         unitDetails = variationDetails.units.find(
+//           (u: any) => u._id?.toString() === item.total?.toString()
+//         );
+//         unitPrice = unitDetails?.sellingPrice || 0;
+//       }
+
+//       if (!medicineImage && medicine?.image) {
+//         medicineImage = medicine.image;
+//       }
+//     }
+
+//     const itemTotalPrice = unitPrice * count;
+//     totalPrice += itemTotalPrice;
+
+//     return {
+//       _id: medicine._id,
+//       name: medicine.name,
+//       company: medicine.company,
+//       dosage: variationDetails ? {
+//         _id: variationDetails._id,
+//         dosage: variationDetails.dosage,
+//       } : null,
+//       count,
+//       total: unitDetails ? {
+//         _id: unitDetails._id,
+//         unitPerBox: unitDetails.unitPerBox,
+//         sellingPrice: unitDetails.sellingPrice,
+//       } : null,
+//       totalPrice: itemTotalPrice,
+//       image: medicineImage,
+//     };
+//   });
+
+//   // 🎯 Filter `selectedMedicines` to keep only selected variation + unit
+//   const updatedSelectedMedicines = (result.selectedMedicines || []).map((item: any) => {
+//     const med = item.medicineId;
+//     const selectedVariationId = item.variationId?.toString();
+//     const selectedUnitId = item.unitId?.toString();
+
+//     // find selected variation
+//     const selectedVariation = med?.variations?.find(
+//       (v: any) => v._id?.toString() === selectedVariationId
+//     );
+
+//     // find selected unit inside that variation
+//     const selectedUnit = selectedVariation?.units?.find(
+//       (u: any) => u._id?.toString() === selectedUnitId
+//     );
+
+//     // build a new variations array with only the selected variation + selected unit
+//     const filteredVariations = selectedVariation
+//       ? [
+//           {
+//             _id: selectedVariation._id,
+//             dosage: selectedVariation.dosage,
+//             units: selectedUnit
+//               ? [
+//                   {
+//                     _id: selectedUnit._id,
+//                     unitPerBox: selectedUnit.unitPerBox,
+//                     sellingPrice: selectedUnit.sellingPrice,
+//                   },
+//                 ]
+//               : [],
+//           },
+//         ]
+//       : [];
+
+//     return {
+//       _id: item._id,
+
+//       // variationId: item.variationId,
+//       // unitId: item.unitId,
+//       medicineId: {
+//         _id: med._id,
+//         name: med.name,
+//         company: med.company,
+//         country: med.country,
+//         image: med.image,
+//         form: med.form,
+//         description: med.description,
+//         subCategory: med.subCategory,
+//         addedBy: med.addedBy,
+//         createdAt: med.createdAt,
+//         updatedAt: med.updatedAt,
+//         __v: med.__v,
+//         variations: filteredVariations,
+//       count: item.count,
+//       totalPrice: item.total,
+//       },
+//     };
+//   });
+
+//   const { totalAmount, ...rest } = result;
+
+//   return {
+//     ...rest,
+//     suggestedMedicine: updatedSuggestedMedicines,
+//     selectedMedicines: updatedSelectedMedicines,
+//     totalPrice,
+//   };
+// };
 
 
 const refundByIDFromDB = async (id: string) => {
@@ -1287,59 +1626,162 @@ const withdrawDoctorMoney = async (id: string) => {
   return {};
 };
 
-// const buyMedicine = async (userId: string, id: string) => {
-//   const user = await User.findById(userId);
-//   if (!user) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found');
-//   }
-//   const isExistConsultation = await getConsultationByID(id);
-//   let allMedicinsPrice = 0;
-//   allMedicinsPrice = isExistConsultation?.suggestedMedicine?.reduce(
-//     (
-//       total: number,
-//       medication: {
-//         count: number;
-//         _id: { sellingPrice: string; unitPerBox: string[] };
-//       }
-//     ) => {
-//       const pricePerUnit =
-//         Number(medication?._id?.sellingPrice) *
-//         Number(medication?._id?.unitPerBox[0]);
-//       return total + pricePerUnit * Number(medication?.count);
-//     },
-//     0
-//   );
-//   await Consultation.findByIdAndUpdate(
-//     id,
-//     {
-//       totalAmount: allMedicinsPrice,
-//     },
-//     { runValidators: true }
-//   );
-//   const session = await stripe.checkout.sessions.create({
-//     payment_method_types: ['card', 'ideal'],
-//     line_items: [
-//       {
-//         price_data: {
-//           currency: 'eur',
-//           product_data: {
-//             name: 'Consultation service Medicins.',
-//             description: 'Prescription medicins',
-//           },
-//           unit_amount: allMedicinsPrice * 100 + 2000,
-//         },
-//         quantity: 1,
-//       },
-//     ],
-//     mode: 'payment',
-//     success_url: `https://api.dokterforyou.com/api/v1/consultation/buySuccess?session_id={CHECKOUT_SESSION_ID}&id=${id}`,
-//     cancel_url: `https://www.dokterforyou.com/profile`,
-//     metadata: {
-//       userId,
-//     },
-//   });
-//   return session.url;
-// };
+
+const buyMedicine = async (userId: string, id: string) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found');
+  }
+
+  const rawConsultation = await Consultation.findById(id).lean();
+  if (!rawConsultation) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Consultation not found');
+  }
+
+  console.log('Raw Consultation Data:', JSON.stringify(rawConsultation, null, 2));
+
+  if (!rawConsultation.suggestedMedicine || rawConsultation.suggestedMedicine.length === 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'No suggested medicines found');
+  }
+
+  let allMedicinsPrice = 0;
+  const processedMedicines: any[] = [];
+
+  for (const medication of rawConsultation.suggestedMedicine) {
+    try {
+      console.log('Processing medication:', JSON.stringify(medication, null, 2));
+
+      const medicineId = medication._id;
+      if (!medicineId) {
+        console.warn('No medicine ID found in medication:', medication);
+        continue;
+      }
+
+      const medicine = await Medicine.findById(medicineId);
+      if (!medicine) {
+        console.warn('Medicine not found with ID:', medicineId);
+        continue;
+      }
+
+      const count = Number(medication.count) || 0;
+      if (count <= 0) {
+        console.warn(`Invalid count for medicine ${medicine.name}: ${count}`);
+        continue;
+      }
+
+      let sellingPrice = 0;
+      let unitsInBox = 1;
+
+      // If medication.total is an object with sellingPrice, use it; otherwise, try to resolve by ObjectId
+      if (
+        medication.total &&
+        typeof medication.total === 'object' &&
+        'sellingPrice' in medication.total
+      ) {
+        sellingPrice = Number((medication.total as any).sellingPrice) || 0;
+        unitsInBox = Number((medication.total as any).unitPerBox) || 1;
+      } else if (medicine.variations && medication.dosage && medication.total) {
+        const variation = medicine.variations.find(
+          (v: any) => v._id?.toString() === medication.dosage?.toString()
+        );
+        if (variation) {
+          const unit = variation.units?.find(
+            (u: any) => u._id?.toString() === medication.total?.toString()
+          );
+          if (unit) {
+            sellingPrice = Number(unit.sellingPrice) || 0;
+            unitsInBox = Number(unit.unitPerBox) || 1;
+          }
+        }
+      }
+
+      if (sellingPrice <= 0) {
+        console.warn(`Invalid selling price for medicine ${medicine.name}: ${sellingPrice}`);
+        continue;
+      }
+
+      const medicationTotal = sellingPrice * unitsInBox * count;
+      console.log(`Calculation for ${medicine.name}:
+        - Selling Price: ${sellingPrice}
+        - Units per Box: ${unitsInBox}
+        - Count: ${count}
+        - Total: ${medicationTotal}`);
+
+      if (medicationTotal > 0) {
+        allMedicinsPrice += medicationTotal;
+        processedMedicines.push({
+          medicineId,
+          name: medicine.name,
+          count,
+          sellingPrice,
+          unitsInBox,
+          total: medicationTotal
+        });
+        console.log(`✅ Successfully processed: ${medicine.name} - Total: ${medicationTotal}`);
+      } else {
+        console.warn(`❌ Zero total calculated for ${medicine.name}`);
+      }
+    } catch (error) {
+      console.error('Error processing medication:', error);
+      continue;
+    }
+  }
+
+  console.log('\n=== FINAL SUMMARY ===');
+  console.log('Total medicines in consultation:', rawConsultation.suggestedMedicine.length);
+  console.log('Successfully processed:', processedMedicines.length);
+  console.log('Total calculated price:', allMedicinsPrice);
+  console.log('Processed medicines:', processedMedicines);
+
+  if (allMedicinsPrice <= 0) {
+    const errorDetails = rawConsultation.suggestedMedicine.map((med, index) => ({
+      index: index + 1,
+      medicineId: med._id || 'No ID',
+      count: med.count || 'No count',
+      total: med.total || 'No total field'
+    }));
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      `Cannot calculate medicine cost. Details: ${JSON.stringify(errorDetails)}. Please check: 1) Medicine IDs exist, 2) Selling Price > 0, 3) Count > 0`
+    );
+  }
+
+  const serviceFee = 2000; // €20 in cents
+  const totalAmountInCents = Math.round(allMedicinsPrice * 100) + serviceFee;
+
+  await Consultation.findByIdAndUpdate(
+    id,
+    { totalAmount: allMedicinsPrice },
+    { runValidators: true }
+  );
+
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card', 'ideal'],
+    line_items: [
+      {
+        price_data: {
+          currency: 'eur',
+          product_data: {
+            name: 'Consultation Prescribed Medicines',
+            description: `${processedMedicines.length} medicine(s): ${processedMedicines.map(m => m.name).join(', ')}`,
+          },
+          unit_amount: totalAmountInCents,
+        },
+        quantity: 1,
+      },
+    ],
+    mode: 'payment',
+    success_url: `https://api.dokterforyou.com/api/v1/consultation/buySuccess?session_id={CHECKOUT_SESSION_ID}&id=${id}`,
+    cancel_url: `https://www.dokterforyou.com/profile`,
+    metadata: {
+      userId,
+      consultationId: id,
+      medicineCount: processedMedicines.length.toString(),
+    },
+  });
+
+  return session.url;
+};
 
 // const buyMedicine = async (userId: string, id: string) => {
 //   // Validate user
@@ -1354,8 +1796,8 @@ const withdrawDoctorMoney = async (id: string) => {
 //     throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid consultation ID');
 //   }
 
-//   // Check consultation existence with populated suggestedMedicine
-//   const isExistConsultation = await Consultation.findById(id).populate('suggestedMedicine._id');
+//   // Check consultation existence
+//   const isExistConsultation = await getConsultationByID(id);
 //   if (!isExistConsultation) {
 //     throw new ApiError(StatusCodes.NOT_FOUND, 'Consultation not found');
 //   }
@@ -1369,65 +1811,30 @@ const withdrawDoctorMoney = async (id: string) => {
 //   const allMedicinsPrice = isExistConsultation.suggestedMedicine.reduce(
 //     (
 //       total: number,
-//       medication: any // <-- add 'any' or a more specific type if available
-//     ) => {
-//       // Type assertion to ensure medication._id has sellingPrice and unitPerBox
-//       const med = medication as {
+//       medication: {
 //         count: number;
-//         _id: { sellingPrice: number; unitPerBox: string[] | string };
-//         total?: string;
-//       };
-
-//       if (
-//         !med?._id ||
-//         !med._id.sellingPrice ||
-//         isNaN(Number(med.count)) ||
-//         med.count < 1
-//       ) {
-//         console.warn('Skipping invalid medication:', med);
-//         return total;
+//         _id: { sellingPrice: string; unitPerBox: string[] };
 //       }
-
-//       // Parse unitPerBox (handle both array and string cases)
-//       let units = 1;
-//       const unitPerBox = med._id.unitPerBox;
-//       if (unitPerBox) {
-//         // If unitPerBox is an array, use the first element
-//         const unitPerBoxStr = Array.isArray(unitPerBox) ? unitPerBox[0] : unitPerBox;
-//         const match = unitPerBoxStr.match(/(\d+)/); // Extract number, e.g., '10 tablets' -> 10
-//         units = match ? Number(match[0]) : 1;
+//     ) => {
+//       if (!medication?._id || !medication._id.sellingPrice || !Array.isArray(medication._id.unitPerBox)) {
+//         console.warn('Skipping invalid medication:', medication);
+//         return total; // Skip invalid entries
 //       }
-
-//       const pricePerUnit = Number(med._id.sellingPrice) * units;
-//       const medicationTotal = pricePerUnit * Number(med.count);
-//       console.log(
-//         `Medication: ${JSON.stringify(med._id)}, Price per unit: ${pricePerUnit}, Count: ${med.count}, Total: ${medicationTotal}`
-//       );
-
-//       return total + medicationTotal;
+//       const pricePerUnit =
+//         Number(medication._id.sellingPrice) * Number(medication._id.unitPerBox[0] || 1);
+//       return total + pricePerUnit * Number(medication.count || 0);
 //     },
 //     0
 //   );
-
-//   if (isNaN(allMedicinsPrice) || allMedicinsPrice <= 0) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid total medicine price calculated');
-//   }
 
 //   // Update consultation with total amount
 //   await Consultation.findByIdAndUpdate(
 //     id,
 //     { totalAmount: allMedicinsPrice },
 //     { runValidators: true }
-//   ).catch((error) => {
-//     throw new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, 'Failed to update consultation');
-//   });
+//   );
 
 //   // Create Stripe checkout session
-//   const unitAmount = Math.round(allMedicinsPrice * 100); // Convert to cents
-//   if (unitAmount <= 0) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Total price must be greater than zero');
-//   }
-
 //   const session = await stripe.checkout.sessions.create({
 //     payment_method_types: ['card', 'ideal'],
 //     line_items: [
@@ -1435,10 +1842,10 @@ const withdrawDoctorMoney = async (id: string) => {
 //         price_data: {
 //           currency: 'eur',
 //           product_data: {
-//             name: 'Consultation Service Medicines',
-//             description: `Prescription medicines for consultation ID: ${id}`,
+//             name: 'Consultation service Medicines',
+//             description: 'Prescription medicines',
 //           },
-//           unit_amount: unitAmount, // Remove hardcoded +2000
+//           unit_amount: allMedicinsPrice * 100 + 2000,
 //         },
 //         quantity: 1,
 //       },
@@ -1449,89 +1856,8 @@ const withdrawDoctorMoney = async (id: string) => {
 //     metadata: { userId },
 //   });
 
-//   console.log('Calculated total price (EUR):', allMedicinsPrice);
-//   console.log('Stripe session unit_amount (cents):', unitAmount);
-//   console.log('Stripe session created:', session);
-
 //   return session.url;
 // };
-
-
-const buyMedicine = async (userId: string, id: string) => {
-  // Validate user
-  const user = await User.findById(userId);
-  if (!user) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'User not found');
-  }
-
-  // Validate consultation ID
-  const { isValidObjectId } = require('mongoose');
-  if (!isValidObjectId(id)) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid consultation ID');
-  }
-
-  // Check consultation existence
-  const isExistConsultation = await getConsultationByID(id);
-  if (!isExistConsultation) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'Consultation not found');
-  }
-
-  // Check if suggested medicines exist
-  if (!isExistConsultation.suggestedMedicine?.length) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'No medicines found for this consultation');
-  }
-
-  // Calculate total price
-  const allMedicinsPrice = isExistConsultation.suggestedMedicine.reduce(
-    (
-      total: number,
-      medication: {
-        count: number;
-        _id: { sellingPrice: string; unitPerBox: string[] };
-      }
-    ) => {
-      if (!medication?._id || !medication._id.sellingPrice || !Array.isArray(medication._id.unitPerBox)) {
-        console.warn('Skipping invalid medication:', medication);
-        return total; // Skip invalid entries
-      }
-      const pricePerUnit =
-        Number(medication._id.sellingPrice) * Number(medication._id.unitPerBox[0] || 1);
-      return total + pricePerUnit * Number(medication.count || 0);
-    },
-    0
-  );
-
-  // Update consultation with total amount
-  await Consultation.findByIdAndUpdate(
-    id,
-    { totalAmount: allMedicinsPrice },
-    { runValidators: true }
-  );
-
-  // Create Stripe checkout session
-  const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card', 'ideal'],
-    line_items: [
-      {
-        price_data: {
-          currency: 'eur',
-          product_data: {
-            name: 'Consultation service Medicines',
-            description: 'Prescription medicines',
-          },
-          unit_amount: allMedicinsPrice * 100 + 2000,
-        },
-        quantity: 1,
-      },
-    ],
-    mode: 'payment',
-    success_url: `https://api.dokterforyou.com/api/v1/consultation/buySuccess?session_id={CHECKOUT_SESSION_ID}&id=${id}`,
-    cancel_url: `https://www.dokterforyou.com/profile`,
-    metadata: { userId },
-  });
-
-  return session.url;
-};
 
 const buyMedicineSuccess = async (
   session_id: string,

@@ -136,6 +136,10 @@ const consultationSchema = new Schema<IConsultation, ConsultationModel>(
       type: String,
       required: false,
     },
+shippingCost: {
+          type: String,
+          required: true,
+        },
     // suggestedMedicine: {
     //   type: [
     //     {

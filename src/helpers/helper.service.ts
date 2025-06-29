@@ -5,6 +5,7 @@ import { User } from '../app/modules/user/user.model';
 import { Consultation } from '../app/modules/consultation/consultation.model';
 import { STATUS } from '../enums/consultation';
 import { USER_ROLES } from '../enums/user';
+import { Medicine } from '../app/modules/medicine/medicine.model';
 
 const getAllDataFromDB = async (query: any, model: Model<any>) => {
   const {
@@ -382,7 +383,59 @@ export const assignDoctorByWorkload = async (doctors: any[]): Promise<string> =>
   
   return selectedDoctor.doctorId;
 };
+const verifyConsultationData = async (consultationId: string) => {
+  try {
+    // Get consultation
+    const consultation = await Consultation.findById(consultationId);
+    if (!consultation) {
+      console.log('❌ Consultation not found');
+      return false;
+    }
 
+    console.log('✅ Consultation found');
+    console.log('Suggested medicines count:', consultation.suggestedMedicine?.length || 0);
+
+    if (!consultation.suggestedMedicine || consultation.suggestedMedicine.length === 0) {
+      console.log('❌ No suggested medicines in consultation');
+      return false;
+    }
+
+    // Check each suggested medicine
+    for (let i = 0; i < consultation.suggestedMedicine.length; i++) {
+      const med = consultation.suggestedMedicine[i];
+      console.log(`\n--- Checking medicine ${i + 1} ---`);
+      console.log('Medicine object:', JSON.stringify(med, null, 2));
+
+      const medicineId = med._id;
+      if (!medicineId) {
+        console.log('❌ No medicine ID found');
+        continue;
+      }
+
+      // Check if medicine exists
+      const medicine = await Medicine.findById(medicineId);
+      if (!medicine) {
+        console.log(`❌ Medicine not found in database with ID: ${medicineId}`);
+        continue;
+      }
+
+      console.log('✅ Medicine found:', medicine.name);
+      console.log('Medicine details:');
+      console.log('- sellingPrice:', medicine.get('sellingPrice'));
+      console.log('- unitPerBox:', medicine.get('unitPerBox'));
+      console.log('- Available fields:', Object.keys(medicine.toObject()));
+
+      // Check medication count
+      console.log('Medication count:', med.count);
+      console.log('Medication total field:', med.total);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error verifying data:', error);
+    return false;
+  }
+};
 
 
 export const HelperService = {
@@ -394,5 +447,6 @@ export const HelperService = {
   getMonthlyEarnings,
   getMonthlyUserCount,
   getMonthlyWorkLoad,
-  assignDoctorByWorkload
+  assignDoctorByWorkload,
+  verifyConsultationData
 };

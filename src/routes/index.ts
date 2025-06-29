@@ -21,6 +21,7 @@ import { OrderRoutes } from '../app/modules/order/order.route';
 import { EuropeConsultationRoutes } from '../app/modules/europe/consultation/consultation.route';
 import { AffliatedRoutes } from '../app/modules/europe/affliatedDoctor/affliated.route';
 import { MedicalQuestionRoutes } from '../app/modules/question-medical/question.route';
+import { ShippingRoutes } from '../app/modules/shipping-cost/shipping.routes';
 
 const router = express.Router();
 
@@ -112,6 +113,10 @@ const apiRoutes = [
    {
     path: '/europe/affiliated-doctor',
     route: AffliatedRoutes
+  },
+    {
+    path: '/shipping',
+    route: ShippingRoutes
   },
   
 ];
