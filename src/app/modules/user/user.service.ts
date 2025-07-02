@@ -9,16 +9,51 @@ import generateOTP from '../../../util/generateOTP';
 import { IUser } from './user.interface';
 import { User } from './user.model';
 
+// const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
+//   //set role
+//   payload.role = USER_ROLES.USER;
+//   const createUser = await User.create(payload);
+//   if (!createUser) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create user');
+//   }
+
+//   //send email
+//   const otp = generateOTP();
+//   const values = {
+//     name: createUser.firstName + ' ' + createUser.lastName,
+//     otp: otp,
+//     email: createUser.email!,
+//   };
+  
+//   const createAccountTemplate = emailTemplate.createAccount(values);
+//   emailHelper.sendEmail(createAccountTemplate);
+
+//   //save to DB
+//   const authentication = {
+//     oneTimeCode: otp,
+//     expireAt: new Date(Date.now() + 3 * 60000),
+//   };
+//   await User.findOneAndUpdate(
+//     { _id: createUser._id },
+//     { $set: { authentication } }
+//   );
+
+//   return createUser;
+// };
 const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
-  //set role
+  // set role
   payload.role = USER_ROLES.USER;
+
   const createUser = await User.create(payload);
   if (!createUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create user');
   }
 
-  //send email
+  // generate OTP
   const otp = generateOTP();
+  console.log('Generated OTP:', otp); // ✅ Console log the OTP here
+
+  // prepare email
   const values = {
     name: createUser.firstName + ' ' + createUser.lastName,
     otp: otp,
@@ -27,7 +62,7 @@ const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
   const createAccountTemplate = emailTemplate.createAccount(values);
   emailHelper.sendEmail(createAccountTemplate);
 
-  //save to DB
+  // save OTP to DB
   const authentication = {
     oneTimeCode: otp,
     expireAt: new Date(Date.now() + 3 * 60000),
