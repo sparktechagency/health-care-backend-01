@@ -2,7 +2,7 @@
 import { Types } from 'mongoose';
 
 export interface IShippingCost {
-  country: string;
+  country: string[];
   cost: number;
   addedBy: Types.ObjectId;
 }

@@ -5,7 +5,11 @@ import { IShippingCost } from './shippingCost.interface';
 
 const shippingCostSchema = new Schema<IShippingCost>(
   {
-    country: { type: String, required: true, unique: true },
+    // country: { type: String, required: true, unique: true },
+   country: {
+      type: [String],
+      required: true,
+    },
     cost: { type: Number, required: true },
     addedBy: {
       type: Schema.Types.ObjectId,

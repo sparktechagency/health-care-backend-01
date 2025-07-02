@@ -18,5 +18,22 @@ router.get(
   auth(USER_ROLES.ADMIN),
   ShippingController.getAllShippingCosts
 );
+router.get(
+  '/country',
+  auth(USER_ROLES.ADMIN),
+  ShippingController.getShippingCostByCountry
+);
+
+router.patch(
+  '/:id',
+  auth(USER_ROLES.ADMIN),
+  ShippingController.updateShippingCost
+);
+router.delete(
+  '/:id',
+  auth(USER_ROLES.ADMIN),
+  ShippingController.deleteShippingCost
+);
+
 
 export const ShippingRoutes = router;
