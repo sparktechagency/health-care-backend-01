@@ -34,6 +34,8 @@ import { StatusCodes } from 'http-status-codes';
 
 //   return session;
 // };
+
+
 const createCheckoutSession = async (userId: string, id: string, totalAmount: number) => {
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card', 'ideal'],
@@ -45,12 +47,13 @@ const createCheckoutSession = async (userId: string, id: string, totalAmount: nu
             name: 'Consultation service.',
             description: 'Consultation service from dokter for you',
           },
-          unit_amount: Math.round(totalAmount * 100), // Convert to cents
+          unit_amount: Math.round(totalAmount * 100), 
         },
         quantity: 1,
       },
     ],
     mode: 'payment',
+    // success_url: `https://dokterforyou.com/api/v1/consultation/create/success?session_id={CHECKOUT_SESSION_ID}&id=${id}`,
     success_url: `https://dokterforyou.com/api/v1/consultation/create/success?session_id={CHECKOUT_SESSION_ID}&id=${id}`,
     cancel_url: `https://www.dokterforyou.com/profile?isSuccess=false`,
     metadata: {

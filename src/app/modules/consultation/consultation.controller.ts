@@ -130,6 +130,7 @@ const createConsultationSuccess = catchAsync(
     return res.redirect('https://www.dokterforyou.com/profile?isSuccess=true');
   }
 );
+
 const getMyConsultations = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user?.id;
   const query = req.query;

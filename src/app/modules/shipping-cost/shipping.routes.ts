@@ -1,4 +1,4 @@
-// src/app/modules/shippingCost/shippingCost.routes.ts
+
 import express from 'express';
 import { ShippingController } from './shippingcost.controller';
 import auth from '../../middlewares/auth';

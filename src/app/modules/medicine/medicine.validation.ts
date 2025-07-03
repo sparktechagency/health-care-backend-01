@@ -139,7 +139,8 @@ const variationSchema = z.object({
 const createMedicineZodSchema = z.object({
   name: z.string(),
   company: z.string(),
-  country: z.string(),
+  // country: z.string(),
+  country: z.array(z.string()),
   image: z.string(),
   form: z.string(),
   description: z.string(),

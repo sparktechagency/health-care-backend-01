@@ -23,35 +23,76 @@ const createNotification = async (
   return result;
 };
 
+// const getAllNotifications = async (
+//   queryFields: Record<string, any>,
+//   userId: string
+// ): Promise<any> => {
+//   const { search, page, limit } = queryFields;
+//   const query = search
+//     ? {
+//         $or: [
+//           { title: { $regex: search, $options: 'i' } },
+//           { description: { $regex: search, $options: 'i' } },
+//           { status: { $regex: search, $options: 'i' } },
+//         ],
+//       }
+//     : {};
+//   let queryBuilder = Notification.find(query);
+
+//   if (page && limit) {
+//     queryBuilder = queryBuilder.skip((page - 1) * limit).limit(limit);
+//   }
+//   delete queryFields.search;
+//   delete queryFields.page;
+//   delete queryFields.limit;
+//   queryBuilder.find({ ...queryFields, reciever: userId });
+//   const result = await queryBuilder;
+//   const unreadCount = await Notification.countDocuments({
+//     ...queryFields,
+//     status: NOTIFICATION_STATUS.UNREAD,
+//     reciever: userId,
+//   });
+//   return {
+//     data: result,
+//     unreadCount,
+//   };
+// };
 const getAllNotifications = async (
   queryFields: Record<string, any>,
   userId: string
 ): Promise<any> => {
   const { search, page, limit } = queryFields;
-  const query = search
-    ? {
-        $or: [
-          { title: { $regex: search, $options: 'i' } },
-          { description: { $regex: search, $options: 'i' } },
-          { status: { $regex: search, $options: 'i' } },
-        ],
-      }
-    : {};
-  let queryBuilder = Notification.find(query);
+
+  const baseQuery: any = {
+    reciever: userId,
+  };
+
+  if (search) {
+    baseQuery.$or = [
+      { title: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+      { status: { $regex: search, $options: 'i' } },
+    ];
+  }
+
+  // Clean up queryFields to avoid pollution
+  delete queryFields.search;
+  delete queryFields.page;
+  delete queryFields.limit;
+
+  let queryBuilder = Notification.find(baseQuery);
 
   if (page && limit) {
     queryBuilder = queryBuilder.skip((page - 1) * limit).limit(limit);
   }
-  delete queryFields.search;
-  delete queryFields.page;
-  delete queryFields.limit;
-  queryBuilder.find({ ...queryFields, reciever: userId });
-  const result = await queryBuilder;
+
+  const result = await queryBuilder.sort({ createdAt: -1 }); // Sort newest first
+
   const unreadCount = await Notification.countDocuments({
-    ...queryFields,
-    status: NOTIFICATION_STATUS.UNREAD,
     reciever: userId,
+    status: NOTIFICATION_STATUS.UNREAD,
   });
+
   return {
     data: result,
     unreadCount,

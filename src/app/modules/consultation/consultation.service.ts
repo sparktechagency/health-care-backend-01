@@ -1480,20 +1480,45 @@ const getConsultationByID = async (id: string): Promise<any> => {
 //   };
 // };
 
-
 const refundByIDFromDB = async (id: string) => {
   const consultation = await Consultation.findById(id);
   if (!consultation) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Consultation does not exist');
   }
+
+  const paymentIntentID = consultation.paymentIntentID;
+
+  if (!paymentIntentID) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Missing paymentIntentID for this consultation'
+    );
+  }
+
   const refund = await stripe.refunds.create({
-    payment_intent: consultation?.paymentIntentID as string,
+    payment_intent: paymentIntentID,
   });
+
   if (!refund) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to process refund!');
   }
+
   return refund;
 };
+
+// const refundByIDFromDB = async (id: string) => {
+//   const consultation = await Consultation.findById(id);
+//   if (!consultation) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Consultation does not exist');
+//   }
+//   const refund = await stripe.refunds.create({
+//     payment_intent: consultation?.paymentIntentID as string,
+//   });
+//   if (!refund) {
+//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to process refund!');
+//   }
+//   return refund;
+// };
 
 const rejectConsultation = async (id: string, opinion: string) => {
   const consultation = await getConsultationByID(id);

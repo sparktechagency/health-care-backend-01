@@ -108,7 +108,11 @@ const consultationSchema = new Schema<IConsultation, ConsultationModel>(
       required: false,
       default: STATUS.DRAFT,
     },
-
+isMedicine: {
+      type: Boolean,
+      required: false,
+      default: false,
+    },
     orderDate: {
       type: Date,
       required: false,

@@ -5,12 +5,29 @@ import { StatusCodes } from 'http-status-codes';
 import { MedicineService } from './medicine.service';
 import mongoose from 'mongoose';
 
+
 // const createMedicine = catchAsync(async (req: Request, res: Response) => {
 //   if (req.files && 'image' in req.files && req.files.image[0]) {
 //     req.body.image = '/images/' + req.files.image[0].filename;
 //   }
+
 //   req.body.addedBy = req.user.id;
+
+//   // ✅ Parse `variations` string into array
+//   if (typeof req.body.variations === 'string') {
+//     try {
+//       req.body.variations = JSON.parse(req.body.variations);
+//     } catch (err) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid JSON in variations field',
+//         error: err instanceof Error ? err.message : err,
+//       });
+//     }
+//   }
+
 //   const result = await MedicineService.createMedicine(req.body);
+
 //   sendResponse(res, {
 //     statusCode: StatusCodes.CREATED,
 //     success: true,
@@ -18,7 +35,6 @@ import mongoose from 'mongoose';
 //     data: result,
 //   });
 // });
-
 const createMedicine = catchAsync(async (req: Request, res: Response) => {
   if (req.files && 'image' in req.files && req.files.image[0]) {
     req.body.image = '/images/' + req.files.image[0].filename;
@@ -26,7 +42,7 @@ const createMedicine = catchAsync(async (req: Request, res: Response) => {
 
   req.body.addedBy = req.user.id;
 
-  // ✅ Parse `variations` string into array
+  // ✅ Parse variations
   if (typeof req.body.variations === 'string') {
     try {
       req.body.variations = JSON.parse(req.body.variations);
@@ -36,6 +52,15 @@ const createMedicine = catchAsync(async (req: Request, res: Response) => {
         message: 'Invalid JSON in variations field',
         error: err instanceof Error ? err.message : err,
       });
+    }
+  }
+
+  // ✅ Convert country string to array if needed
+  if (typeof req.body.country === 'string') {
+    try {
+      req.body.country = JSON.parse(req.body.country);
+    } catch {
+      req.body.country = [req.body.country];
     }
   }
 

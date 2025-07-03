@@ -24,6 +24,7 @@ export type IConsultation = {
   userId: Types.ObjectId;
   category: Types.ObjectId;
   subCategory: Types.ObjectId;
+  isMedicine: boolean;
   // medicins?: [IMedicineItem];
   selectedMedicines: ISelectedMedicine[];
     medicins?: Array<{

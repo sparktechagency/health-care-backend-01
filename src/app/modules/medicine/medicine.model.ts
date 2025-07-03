@@ -76,10 +76,11 @@ const medicineSchema = new Schema<IMedicine, MedicineModel>(
   {
     name: { type: String, required: true },
     company: { type: String, required: true },
-    country: { type: String, required: true },
+    country: { type: [String], required: true },
     image: { type: String, required: true },
     form: { type: String, required: true },
     description: { type: String, required: true },
+    subDescription: { type: String, required: true },
     subCategory: { type: Schema.Types.ObjectId, ref: 'SubCategory', required: true },
     addedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
 

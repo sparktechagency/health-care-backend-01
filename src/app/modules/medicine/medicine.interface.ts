@@ -36,10 +36,11 @@ export interface IMedicineVariation {
 export interface IMedicine {
   name: string;
   company: string;
-  country: string;
+  country: string[];
   image: string;
   form: string;
   description: string;
+  subDescription: string;
   subCategory: Types.ObjectId;
   addedBy: Types.ObjectId;
   variations: IMedicineVariation[];
