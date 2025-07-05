@@ -38,7 +38,7 @@ import { StatusCodes } from 'http-status-codes';
 
 const createCheckoutSession = async (userId: string, id: string, totalAmount: number) => {
   const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card', 'ideal'],
+    payment_method_types: ['card','ideal', 'blik', 'bancontact', 'eps', 'klarna'],
     line_items: [
       {
         price_data: {
