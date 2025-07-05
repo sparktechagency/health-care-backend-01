@@ -873,89 +873,6 @@ Kind regards, team Doctor For You`,
   return result;
 };
 
-// const getAllConsultations = async (query: any): Promise<any> => {
-//   const searchQuery: any = { ...query };
-
-//   // Handle consultation type filtering
-//   if (query.consultationType) {
-//     if (query.consultationType === CONSULTATION_TYPE.FORWARDTO) {
-//       searchQuery.forwardToPartner = true;
-//     } else if (query.consultationType === CONSULTATION_TYPE.MEDICATION) {
-//       searchQuery.medicins = { $exists: true, $ne: [] };
-//     }
-//     delete searchQuery.consultationType; // Remove from query as it's processed
-//   }
-
-//   // Handle doctor-specific filtering
-//   if (query.doctorId) {
-//     searchQuery.doctorId = new Types.ObjectId(query.doctorId);
-//   }
-
-//   // Set default status filter if not provided
-//   if (!searchQuery.status) {
-//     searchQuery.status = {
-//       $in: [
-//         STATUS.DRAFT,
-//         STATUS.PENDING,
-//         STATUS.PROCESSING,
-//         STATUS.PRESCRIBED,
-//         STATUS.ACCEPTED,
-//         STATUS.REJECTED,
-//         'delivered', // Add this to your STATUS enum if needed
-//       ],
-//     };
-//   } else {
-//     // Ensure status is always an array for $in operator
-//     if (typeof searchQuery.status === 'string') {
-//       searchQuery.status = { $in: [searchQuery.status] };
-//     } else if (Array.isArray(searchQuery.status)) {
-//       searchQuery.status = { $in: searchQuery.status };
-//     }
-//   }
-
-//   const page = Number(query.page || 1);
-//   const limit = Number(query.limit || 10);
-//   const skip = limit * (page - 1);
-
-//   const result = await Consultation.find(searchQuery)
-//     .populate('category')
-//     .populate('subCategory')
-//     .populate('medicins._id')
-//     .populate('suggestedMedicine._id')
-//     .populate({
-//       path: 'doctorId',
-//       select: 'firstName lastName email designation profile subCategory',
-//       populate: {
-//         path: 'subCategory',
-//         select: 'name'
-//       }
-//     })
-//     .populate({
-//       path: 'userId',
-//       select: 'firstName lastName email profile contact country'
-//     })
-//     .sort({ createdAt: -1 }) // Sort by newest first
-//     .skip(skip)
-//     .limit(limit);
-
-//   if (!result.length) {
-//     throw new ApiError(StatusCodes.NOT_FOUND, 'No consultations found!');
-//   }
-
-//   // Get total count for pagination
-//   const totalCount = await Consultation.countDocuments(searchQuery);
-
-//   return {
-//     consultations: result,
-//     pagination: {
-//       currentPage: page,
-//       totalPages: Math.ceil(totalCount / limit),
-//       totalCount,
-//       hasNext: page < Math.ceil(totalCount / limit),
-//       hasPrev: page > 1
-//     }
-//   };
-// };
 const getAllConsultations = async (query: any): Promise<any> => {
   const searchQuery: any = { ...query };
 
@@ -1356,7 +1273,6 @@ const refundByIDFromDB = async (id: string) => {
     if (paymentStatus === 'pending' || !paymentStatus) {
       return { message: 'No payment to refund - consultation was not paid' };
     }
-    
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Missing paymentIntentID for this consultation'
@@ -1373,19 +1289,7 @@ const refundByIDFromDB = async (id: string) => {
   
   return refund;
 };
-// const refundByIDFromDB = async (id: string) => {
-//   const consultation = await Consultation.findById(id);
-//   if (!consultation) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Consultation does not exist');
-//   }
-//   const refund = await stripe.refunds.create({
-//     payment_intent: consultation?.paymentIntentID as string,
-//   });
-//   if (!refund) {
-//     throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to process refund!');
-//   }
-//   return refund;
-// };
+
 
 const rejectConsultation = async (id: string, opinion: string) => {
   const consultation = await getConsultationByID(id);
@@ -1394,41 +1298,42 @@ const rejectConsultation = async (id: string, opinion: string) => {
     { status: STATUS.REJECTED, rejectedOpinion: opinion },
     { new: true }
   );
+
   if (!rejectConsultation) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      'Failed to reject consultation!'
-    );
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to reject consultation!');
   }
+
+  // Trigger refund (wait for this)
   const refund = await refundByIDFromDB(id);
   if (!refund) {
-    throw new ApiError(
-      StatusCodes.INTERNAL_SERVER_ERROR,
-      'Could not refund the money'
-    );
+    throw new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, 'Could not refund the money');
   }
-  await NotificationService.createNotification(
+
+  // Prepare parallel operations
+  const notificationPromise = NotificationService.createNotification(
     {
       title: 'Rejected Consultation',
-      description:
-        'Your consultation request has been rejected by doctor and the money is also successfully refunded to your account.',
+      description: 'Your consultation request has been rejected by doctor and the money is also successfully refunded to your account.',
       reciever: consultation?.userId,
     },
     //@ts-ignore
     global.io
   );
 
-  await emailHelper.sendEmail({
+  const emailPromise = emailHelper.sendEmail({
     to: consultation.userId.email,
     subject: 'Dear customer, the doctor has rejected your consultation',
     html: emailTemplate.sendNotification({
       email: consultation.userId.email,
       name: consultation?.userId?.firstName || 'Unknown',
-      message: ` Dear customer, 
+      message: `Dear customer, 
 The doctor has rejected your consultation. The money has been refunded to your account. The doctor rejected the consultation with the following reason: ${opinion}.
 `,
     }).html,
   });
+
+  // Wait for both async operations to complete in parallel
+  await Promise.all([notificationPromise, emailPromise]);
 
   return {};
 };
@@ -1460,7 +1365,6 @@ const scheduleConsultationToDB = async (data: IConsultation, id: string) => {
     message: 'consultation scheduled successfully',
   };
 };
-
 
 const addLinkToConsultation = async (data: IConsultation, id: string) => {
   await updateConsultation(id, data);
